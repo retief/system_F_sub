@@ -26,12 +26,15 @@ fix F (t : type) : P t :=
   | TBool => type_rect_tbool
   | TNat => type_rect_tnat
   | TArrow t0 t1 => type_rect_tarrow t0 (F t0) t1 (F t1)
-  | TRecord l => type_rect_trecord l ((fix forall_rec (ls : list (id * type)) : Forall P (map (@snd id type) ls) :=
-                                       match ls with
-                                         | nil => Forall_nil P
-                                         | (_,t) :: rest => Forall_cons t (F t) (forall_rec rest)
-                                       end)
-                                      l)
+  | TRecord l =>
+    type_rect_trecord l ((fix forall_rec (ls : list (id * type))
+                          : Forall P (map (@snd id type) ls) :=
+                            match ls with
+                              | nil => Forall_nil P
+                              | (_,t) :: rest =>
+                                Forall_cons t (F t) (forall_rec rest)
+                            end)
+                           l)
   end.
 
 Hint Constructors type.
