@@ -13,6 +13,10 @@ Inductive type : Type :=
 | TArrow : type -> type -> type
 | TRecord : list (id * type) -> type.
 Set Elimination Schemes.
+(* The issue with induction is that the automatic induction function
+ generated does not provide an inductive hypotheses for TRecords.
+ This lets us provide our own induction function that fixes the issue.
+ *)
 Definition type_rec := 
 fun (P : type -> Prop) (type_rect_tbool : P TBool) (type_rect_tnat : P TNat)
   (type_rect_tarrow : forall t : type, P t -> forall t0 : type, P t0 -> P (TArrow t t0))
