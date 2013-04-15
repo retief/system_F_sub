@@ -65,7 +65,7 @@ Definition term_rec := fun (P : term -> Prop) (f : forall i : id, P (TVar i))
   (f5 : forall n : nat, P (TNum n))
   (f6 : forall t : term, P t -> forall t0 : term, P t0 -> P (TPlus t t0))
   (f7 : forall t : term, P t -> forall t0 : term, P t0 -> P (TEqNat t t0))
-  (f8 : forall l : list (id * term), P (TLiteral l))
+  (f8 : forall l : list (id * term), Forall P (map (@snd id term) l) -> P (TLiteral l))
   (f9 : forall t : term, P t -> forall i : id, P (TAccess t i)) =>
 fix F (t : term) : P t :=
   match t as t0 return (P t0) with
@@ -78,7 +78,14 @@ fix F (t : term) : P t :=
   | TNum n => f5 n
   | TPlus t0 t1 => f6 t0 (F t0) t1 (F t1)
   | TEqNat t0 t1 => f7 t0 (F t0) t1 (F t1)
-  | TLiteral l => f8 l
+  | TLiteral l => f8 l ((fix forall_rec (ls : list (id * term))
+                         : Forall P (map (@snd id term) ls) :=
+                           match ls with
+                             | nil => Forall_nil P
+                             | (_,t) :: rest =>
+                               Forall_cons t (F t) (forall_rec rest)
+                           end)
+                          l)
   | TAccess t0 i => f9 t0 (F t0) i
   end.
 
@@ -95,12 +102,37 @@ Tactic Notation "term_cases" tactic(first) ident(c) :=
 
 Hint Constructors term.
 
+Unset Elimination Schemes.
 Inductive value : term -> Prop :=
 | v_abs : forall x T t, value (TLambda x T t)
 | v_true : value TTrue
 | v_false : value TFalse
 | v_nat : forall n, value (TNum n)
-| v_literal : forall l, (forall i v, In (i, v) l -> value v) -> value (TLiteral l).
+| v_literal : forall l, (Forall value (map (@snd id term) l)) -> value (TLiteral l).
+Set Elimination Schemes.
+Definition value_ind := 
+fun (P : term -> Prop)
+  (f : forall (x : id) (T : type) (t : term), P (TLambda x T t)) 
+  (f0 : P TTrue) (f1 : P TFalse) (f2 : forall n : nat, P (TNum n))
+  (f3 : forall l : list (id * term),
+        Forall P (map (@snd id term) l) -> P (TLiteral l)) =>
+fix F (t : term) (v : value t) {struct v} : P t :=
+  match v in (value t0) return (P t0) with
+  | v_abs x T t0 => f x T t0
+  | v_true => f0
+  | v_false => f1
+  | v_nat n => f2 n
+  | v_literal l f5 => f3 l ((fix forall_rec (ls : list (id * term))
+                                 (vs : Forall value (map (@snd id term) ls))
+                             : Forall P (map (@snd id term) ls) :=
+                               match ls with
+                                 | nil => Forall_nil P
+                                 | (_,t) :: rest => match vs with
+                                   Forall_cons t (F t) (forall_rec rest)
+                               end)
+                              l
+                              (f5 l))
+  end.
 
 Hint Constructors value.
 
