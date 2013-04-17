@@ -110,28 +110,27 @@ Inductive value : term -> Prop :=
 | v_nat : forall n, value (TNum n)
 | v_literal : forall l, (Forall value (map (@snd id term) l)) -> value (TLiteral l).
 Set Elimination Schemes.
-Definition value_ind := 
-fun (P : term -> Prop)
+
+Definition Admitted {T : Type} : T. admit. Qed.
+
+Definition value_ind := fun (P : term -> Prop)
   (f : forall (x : id) (T : type) (t : term), P (TLambda x T t)) 
-  (f0 : P TTrue) (f1 : P TFalse) (f2 : forall n : nat, P (TNum n))
+  (f0 : P TTrue)
+  (f1 : P TFalse)
+  (f2 : forall n : nat, P (TNum n))
   (f3 : forall l : list (id * term),
         Forall P (map (@snd id term) l) -> P (TLiteral l)) =>
-fix F (t : term) (v : value t) {struct v} : P t :=
+  fix F (t : term) (v : value t) {struct v} : P t :=
   match v in (value t0) return (P t0) with
   | v_abs x T t0 => f x T t0
   | v_true => f0
   | v_false => f1
   | v_nat n => f2 n
-  | v_literal l f5 => f3 l ((fix forall_rec (ls : list (id * term))
-                                 (vs : Forall value (map (@snd id term) ls))
-                             : Forall P (map (@snd id term) ls) :=
-                               match ls with
-                                 | nil => Forall_nil P
-                                 | (_,t) :: rest => match vs with
-                                   Forall_cons t (F t) (forall_rec rest)
-                               end)
-                              l
-                              (f5 l))
+  | v_literal l f5 => f3 l ((fix forallrec l (f5 : Forall value l) : Forall P l := 
+     match f5 with
+     | Forall_nil => Forall_nil P
+     | Forall_cons t ts vt tvs => Forall_cons t (F t vt) (forallrec ts tvs)
+     end) (map (@snd id term) l) f5)
   end.
 
 Hint Constructors value.
@@ -196,7 +195,7 @@ Tactic Notation "step_cases" tactic(first) ident(c) :=
   | Case_aux c "ST_Plus"      | Case_aux c "ST_PlusL"
   | Case_aux c "ST_PlusR"     | Case_aux c "ST_EqNatT"
   | Case_aux c "ST_EqNatF"    | Case_aux c "ST_EqNatL"
-  | Case_aux c "ST_EqNatR"    | Case_aux c "TLiteral"
+  | Case_aux c "ST_EqNatR"    | Case_aux c "ST_Literal"
   | Case_aux c "ST_Access"    | Case_aux c "ST_AccessS"].
 
 Hint Constructors step.
