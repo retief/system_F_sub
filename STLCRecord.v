@@ -162,6 +162,7 @@ Fixpoint lookup (i : id) (l : list (id * term)) : option term :=
                       then Some v
                       else lookup i l'
   end.
+    
 
 Reserved Notation "t1 '==>' t2" (at level 40).
 (* Note: Induction should be fine here *)
@@ -373,7 +374,27 @@ Proof with eauto.
     SCase "Base". left. constructor. simpl. constructor.
     SCase "Inductive". destruct x. destruct y. simpl in *. inversion H. subst.
       destruct H2...
-      SSCase "value t". 
+      SSCase "value t".
+        destruct IHForall2.
+        SSSCase "value (TLiteral l)".
+          left. apply v_literal. simpl. apply Forall_cons. apply H1. inversion H2. apply H4.
+        SSSCase "(TLiteral l) ==> t'".
+          right. inversion H2; subst. inversion H3; subst.
+          exists (TLiteral ((i0, t) :: l0 ++ (i, v') :: r)).
+          apply ST_Literal with (l := ((i0, t) :: l0)).
+            apply v_literal. simpl. apply Forall_cons. apply H1.
+              inversion H5; subst. apply H7.
+            apply H6.
+          right. inversion H1. exists (TLiteral ((i0, x) :: l)).
+            apply ST_Literal with (l := nil).
+            apply v_literal. apply Forall_nil. apply H2.
+  Case "T_Access".
+    destruct IHHt. reflexivity.
+    right.
+      exists v. apply ST_Access. apply H1. SearchAbout In. apply in_split in H.
+      inversion H; subst. inversion H2; subst.
+
+          
 Qed.
 
 Inductive appears_free_in : id -> term -> Prop :=
