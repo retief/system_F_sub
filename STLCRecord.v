@@ -372,22 +372,33 @@ Proof with eauto.
   Case "T_Literal".
     induction H; intros; subst.
     SCase "Base". left. constructor. simpl. constructor.
-    SCase "Inductive". destruct x. destruct y. simpl in *. inversion H. subst.
-      destruct H2...
+    SCase "Inductive".
+      destruct x. destruct y. simpl in *. inversion H. subst.
+      destruct H2 as [VT | ST]...
       SSCase "value t".
         destruct IHForall2.
         SSSCase "value (TLiteral l)".
-          left. apply v_literal. simpl. apply Forall_cons. apply H1. inversion H2. apply H4.
-        SSSCase "(TLiteral l) ==> t'".
-          right. inversion H2; subst. inversion H3; subst.
+          left. (* (TLiteral ((i0, t) :: l)) is a value *)
+          apply v_literal; simpl.
+          apply Forall_cons.
+            apply VT.
+            inversion H1. exact H3.
+        SSSCase "exists t' : (TLiteral l) ==> t'".
+          right. inversion H1; subst. inversion H2; subst.
           exists (TLiteral ((i0, t) :: l0 ++ (i, v') :: r)).
           apply ST_Literal with (l := ((i0, t) :: l0)).
-            apply v_literal. simpl. apply Forall_cons. apply H1.
-              inversion H5; subst. apply H7.
-            apply H6.
-          right. inversion H1. exists (TLiteral ((i0, x) :: l)).
-            apply ST_Literal with (l := nil).
-            apply v_literal. apply Forall_nil. apply H2.
+            (* first prove that (TLiteral ((i0, t) :: l0)) is a value *)
+              apply v_literal. simpl.
+              apply Forall_cons.
+                apply VT.
+                inversion H4; subst. apply H6.
+            (* then prove that [v ==> v'] *)
+              apply H5.
+      SSCase "exists t' : t ==> t'".
+        right. inversion ST. exists (TLiteral ((i0, x) :: l)).
+        apply ST_Literal with (l := nil).
+        apply v_literal. apply Forall_nil.
+        apply H1.
   Case "T_Access".
     destruct IHHt. reflexivity.
     right.
