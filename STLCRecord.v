@@ -8,7 +8,9 @@ Hint Resolve beq_id_eq beq_id_false_not_eq.
 Inductive Uniq {t : Type} : list t -> Prop :=
 | Uniq_nil : Uniq []
 | Uniq_cons : forall x xs, not (In x xs) -> Uniq xs -> Uniq (x :: xs).
-  
+
+Hint Constructors Uniq.
+
 (* types *)
 Unset Elimination Schemes.
 Inductive type : Type :=
@@ -168,10 +170,33 @@ Fixpoint lookup' (i : id) (l : list (id * term)) : option term :=
                       then Some v
                       else lookup' i l'
   end.
-    
 
 Definition lookup i li lv :=
   lookup' i (combine li lv).
+
+Lemma lookup_in : forall i v li lv,
+                    Uniq li -> lookup i li lv = Some v -> In i li.
+Proof with auto.
+  intros i v li. generalize dependent i. generalize dependent v.
+  induction li; intros; try solve by inversion.
+    Case "inductive". destruct lv; try solve by inversion.  simpl in *.
+      unfold lookup in H0. simpl in H0. remember (beq_id i a). destruct b.
+      SCase "i = a". apply beq_id_eq in Heqb. inversion H0. subst...
+      SCase "i != a". inversion H; subst. unfold lookup in IHli. right.
+        apply (IHli v i lv H4 H0)...
+Qed.
+
+Lemma in_lookup : forall i v li lv, Uniq li -> In (i,v) (combine li lv) -> lookup i li lv = Some v.
+Proof with auto. intros i v li. generalize dependent i. generalize dependent v.
+  induction li; intros.
+  Case "base". simpl in *. contradiction.
+  Case "inductive". destruct lv. inversion H0. simpl in *. destruct H0.
+    SCase "(a,t) = (i,v)". inversion H0. subst. unfold lookup. simpl. rewrite <- beq_id_refl...
+    SCase "In (i,v) (combine li lv)". inversion H; subst. apply IHli in H0...
+      unfold lookup in *. simpl in *. remember (beq_id i a). destruct b...
+        SSCase "i=a". apply beq_id_eq in Heqb. subst. contradict H3.
+          apply lookup_in in H0...
+Qed.
 
 Reserved Notation "t1 '==>' t2" (at level 40).
 (* Note: Induction should be fine here *)
@@ -248,6 +273,8 @@ Inductive has_type : context -> term -> type -> Prop :=
 | T_EqNat : forall G l r, has_type G l TNat -> has_type G r TNat -> has_type G (TEqNat l r) TBool
 | T_Literal : forall G li lv lt u u',
                 Forall2 (has_type G) lv lt ->
+                length li = length lv ->
+                length li = length lt ->
                 has_type G (TLiteral li lv u) (TRecord li lt u')
 | T_Access : forall G li lv lt u u' i v T,
                has_type G (TLiteral li lv u) (TRecord li lt u') ->
@@ -281,7 +308,7 @@ fun (P : context -> term -> type -> Prop)
         has_type G l TNat ->
         P G l TNat ->
         has_type G r TNat -> P G r TNat -> P G (TEqNat l r) TBool)
-  (f8 : forall (G : context) li (lv : list term) (lt : list type) u u',
+  (f8 : forall (G : context) li (lv : list term) (lt : list type) u u' llv llt,
           Forall2 (P G) lv lt -> 
         P G (TLiteral li lv u) (TRecord li lt u'))
   (f9 : forall (G : context) li (lv : list term)
@@ -305,8 +332,8 @@ fix F (c : context) (t : term) (t0 : type) (h : has_type c t t0) {struct h} : P 
     | T_Nat G n => f5 G n
     | T_Plus G l r h0 h1 => f6 G l r h0 (F G l TNat h0) h1 (F G r TNat h1)
     | T_EqNat G l r h0 h1 => f7 G l r h0 (F G l TNat h0) h1 (F G r TNat h1)
-    | T_Literal G li lv lt u u' f10 =>
-      f8 G li lv lt u u'
+    | T_Literal G li lv lt u u' f10 llv llt =>
+      f8 G li lv lt u u' llv llt
          ((fix forallrec term_list type_list
                (f5 : Forall2 (has_type G)
                              term_list type_list) :
@@ -370,42 +397,39 @@ Proof with eauto.
     inversion H0. exists (TEqNat l x)...
     inversion H. exists (TEqNat x r)...
   Case "T_Literal".
-    induction H; intros; subst.
-    SCase "Base". left. constructor. simpl. constructor.
+    generalize dependent li.
+    induction H; intros; subst...
     SCase "Inductive".
-      destruct x. destruct y. simpl in *. inversion H. subst.
-      destruct H2 as [VT | ST]...
-      SSCase "value t".
-        destruct IHForall2.
-        SSSCase "value (TLiteral l)".
+      destruct H...
+      SSCase "value x".
+        destruct li; simpl in *; try solve by inversion.
+        inversion u; subst.
+        destruct (IHForall2 li H4)...
+        SSSCase "value TLiteral".
           left. (* (TLiteral ((i0, t) :: l)) is a value *)
           apply v_literal; simpl.
-          apply Forall_cons.
-            apply VT.
-            inversion H1. exact H3.
-        SSSCase "exists t' : (TLiteral l) ==> t'".
+          apply Forall_cons...
+          inversion H1...
+        SSSCase "exists t' : TLiteral ==> t'".
           right. inversion H1; subst. inversion H2; subst.
-          exists (TLiteral ((i0, t) :: l0 ++ (i, v') :: r)).
-          apply ST_Literal with (l := ((i0, t) :: l0)).
+          exists (TLiteral (i :: li0 ++ i0 :: ri) (x :: lv ++ v' :: rv) u).
+          assert (Uniq (i :: li0)).
+            SSSSCase "Proof of assertion".
+              constructor... intro. contradict H3. apply in_or_app. left...
+          apply ST_Literal with (li := (i :: li0)) (lv := x :: lv) (u := H5)...
             (* first prove that (TLiteral ((i0, t) :: l0)) is a value *)
-              apply v_literal. simpl.
-              apply Forall_cons.
-                apply VT.
-                inversion H4; subst. apply H6.
-            (* then prove that [v ==> v'] *)
-              apply H5.
-      SSCase "exists t' : t ==> t'".
-        right. inversion ST. exists (TLiteral ((i0, x) :: l)).
-        apply ST_Literal with (l := nil).
-        apply v_literal. apply Forall_nil.
-        apply H1.
+              apply v_literal. constructor...
+              inversion H7...
+      SSCase "exists t' : x ==> t'".
+        right. inversion H. destruct li; simpl in *; try solve by inversion.
+        exists (TLiteral (i :: li) (x0 :: l) u).
+        apply ST_Literal with (lv := nil) (li := nil) (u' := u) (u'' := u)
+          (v := x) (v' := x0) (u := Uniq_nil)...
   Case "T_Access".
-    destruct IHHt. reflexivity.
-    right.
-      exists v. apply ST_Access. apply H1. SearchAbout In. apply in_split in H.
-      inversion H; subst. inversion H2; subst.
-Admitted.
-
+    destruct IHHt...
+    SCase "TLiteral is a value". right. inversion Ht; subst. apply in_lookup in H...
+    SCase "TLiteral setps". right. inversion H1. exists (TAccess x i)...
+Qed.
 
 Inductive appears_free_in : id -> term -> Prop :=
 | AFI_Var : forall x,
