@@ -4,6 +4,10 @@ Require Import partial_map.
 Module STLC.
 
 Hint Resolve beq_id_eq beq_id_false_not_eq.
+
+Inductive Uniq {t : Type} : list t -> Prop :=
+| Uniq_nil : Uniq []
+| Uniq_cons : forall x xs, not (In x xs) -> Uniq xs -> Uniq (x :: xs).
   
 (* types *)
 Unset Elimination Schemes.
@@ -11,7 +15,8 @@ Inductive type : Type :=
 | TBool : type
 | TNat : type
 | TArrow : type -> type -> type
-| TRecord : list (id * type) -> type.
+| TRecord : forall (li : list id) (lt : list type),
+              Uniq li -> type.
 Set Elimination Schemes.
 (* The issue with induction is that the automatic induction function
  generated does not provide an inductive hypotheses for TRecords.
@@ -20,21 +25,22 @@ Set Elimination Schemes.
 Definition type_rec := 
 fun (P : type -> Prop) (type_rect_tbool : P TBool) (type_rect_tnat : P TNat)
   (type_rect_tarrow : forall t : type, P t -> forall t0 : type, P t0 -> P (TArrow t t0))
-  (type_rect_trecord : forall l : list (id * type), Forall P (map (@snd id type) l) -> P (TRecord l)) =>
+  (type_rect_trecord : forall li lt u, Forall P lt -> P (TRecord li lt u)) =>
 fix F (t : type) : P t :=
   match t as t0 return (P t0) with
   | TBool => type_rect_tbool
   | TNat => type_rect_tnat
   | TArrow t0 t1 => type_rect_tarrow t0 (F t0) t1 (F t1)
-  | TRecord l =>
-    type_rect_trecord l ((fix forall_rec (ls : list (id * type))
-                          : Forall P (map (@snd id type) ls) :=
-                            match ls with
+  | TRecord li lt u =>
+    type_rect_trecord li lt u
+                      ((fix forall_rec (lt' : list type)
+                          : Forall P lt' :=
+                            match lt' with
                               | nil => Forall_nil P
-                              | (_,t) :: rest =>
+                              | t :: rest =>
                                 Forall_cons t (F t) (forall_rec rest)
                             end)
-                           l)
+                           lt)
   end.
 
 Hint Constructors type.
@@ -51,7 +57,7 @@ Inductive term : Type :=
 | TNum : nat -> term
 | TPlus : term -> term -> term
 | TEqNat : term -> term -> term
-| TLiteral : list (id * term) -> term
+| TLiteral : forall (li : list id) (lv : list term), Uniq li -> term
 | TAccess : term -> id -> term.
 Set Elimination Schemes.
 (* TODO: Fix inductive hypotheses for f8 (TLiteral's induction) *)
@@ -65,7 +71,7 @@ Definition term_rec := fun (P : term -> Prop) (f : forall i : id, P (TVar i))
   (f5 : forall n : nat, P (TNum n))
   (f6 : forall t : term, P t -> forall t0 : term, P t0 -> P (TPlus t t0))
   (f7 : forall t : term, P t -> forall t0 : term, P t0 -> P (TEqNat t t0))
-  (f8 : forall l : list (id * term), Forall P (map (@snd id term) l) -> P (TLiteral l))
+  (f8 : forall li lv u, Forall P lv -> P (TLiteral li lv u))
   (f9 : forall t : term, P t -> forall i : id, P (TAccess t i)) =>
 fix F (t : term) : P t :=
   match t as t0 return (P t0) with
@@ -78,14 +84,14 @@ fix F (t : term) : P t :=
   | TNum n => f5 n
   | TPlus t0 t1 => f6 t0 (F t0) t1 (F t1)
   | TEqNat t0 t1 => f7 t0 (F t0) t1 (F t1)
-  | TLiteral l => f8 l ((fix forall_rec (ls : list (id * term))
-                         : Forall P (map (@snd id term) ls) :=
-                           match ls with
-                             | nil => Forall_nil P
-                             | (_,t) :: rest =>
-                               Forall_cons t (F t) (forall_rec rest)
-                           end)
-                          l)
+  | TLiteral li lv u => f8 li lv u ((fix forall_rec (lv' : list term)
+                                     : Forall P lv' :=
+                                       match lv' with
+                                         | nil => Forall_nil P
+                                         | v :: rest =>
+                                           Forall_cons v (F v) (forall_rec rest)
+                                       end)
+                                      lv)
   | TAccess t0 i => f9 t0 (F t0) i
   end.
 
@@ -108,7 +114,7 @@ Inductive value : term -> Prop :=
 | v_true : value TTrue
 | v_false : value TFalse
 | v_nat : forall n, value (TNum n)
-| v_literal : forall l, (Forall value (map (@snd id term) l)) -> value (TLiteral l).
+| v_literal : forall li lv u, (Forall value lv) -> value (TLiteral li lv u).
 Set Elimination Schemes.
 
 Definition Admitted {T : Type} : T. admit. Qed.
@@ -118,19 +124,19 @@ Definition value_ind := fun (P : term -> Prop)
   (f0 : P TTrue)
   (f1 : P TFalse)
   (f2 : forall n : nat, P (TNum n))
-  (f3 : forall l : list (id * term),
-        Forall P (map (@snd id term) l) -> P (TLiteral l)) =>
+  (f3 : forall li lv u,
+        Forall P lv -> P (TLiteral li lv u)) =>
   fix F (t : term) (v : value t) {struct v} : P t :=
   match v in (value t0) return (P t0) with
   | v_abs x T t0 => f x T t0
   | v_true => f0
   | v_false => f1
   | v_nat n => f2 n
-  | v_literal l f5 => f3 l ((fix forallrec l (f5 : Forall value l) : Forall P l := 
+  | v_literal li lv u f5 => f3 li lv u ((fix forallrec l (f5 : Forall value l) : Forall P l := 
      match f5 with
      | Forall_nil => Forall_nil P
      | Forall_cons t ts vt tvs => Forall_cons t (F t vt) (forallrec ts tvs)
-     end) (map (@snd id term) l) f5)
+     end) lv f5)
   end.
 
 Hint Constructors value.
@@ -149,19 +155,22 @@ Fixpoint subst (x : id) (s : term) (t : term) : term :=
     | TNum n => TNum n
     | TPlus l r => TPlus (subst x s l) (subst x s r)
     | TEqNat l r => TEqNat (subst x s l) (subst x s r)
-    | TLiteral l => TLiteral (map (fun p => match p with (i,v) => (i, subst x s v) end) l)
+    | TLiteral li lv u => TLiteral li (map (subst x s) lv) u
     | TAccess r i => TAccess (subst x s r) i
   end.
 
 Notation "'[' x ':=' s ']' t" := (subst x s t) (at level 20).
 
-Fixpoint lookup (i : id) (l : list (id * term)) : option term :=
+Fixpoint lookup' (i : id) (l : list (id * term)) : option term :=
   match l with
     | nil => None
     | (i',v) :: l' => if beq_id i i'
                       then Some v
-                      else lookup i l'
+                      else lookup' i l'
   end.
+
+Definition lookup i li lv :=
+  lookup' i (combine li lv).
 
 Reserved Notation "t1 '==>' t2" (at level 40).
 (* Note: Induction should be fine here *)
@@ -182,8 +191,15 @@ Inductive step : term -> term -> Prop :=
                           TEqNat (TNum n) (TNum m) ==> TFalse
 | ST_EqNatL : forall l l' r, l ==> l' -> TEqNat l r ==> TEqNat l' r
 | ST_EqNatR : forall l r r', value l -> r ==> r' -> TEqNat l r ==> TEqNat l r'
-| ST_Literal : forall l r i v v', value (TLiteral l) -> v ==> v' -> TLiteral (l ++ ((i,v) :: r)) ==> TLiteral (l ++ ((i,v') :: r))
-| ST_Access : forall l i v, value (TLiteral l) -> lookup i l = Some v -> TAccess (TLiteral l) i ==> v
+| ST_Literal : forall li lv u ri rv i v v' u' u'', value (TLiteral li lv u) ->
+                                               v ==> v' ->
+                                               TLiteral (li ++ (i :: ri))
+                                                        (lv ++ (v :: rv)) u' ==>
+                                                 TLiteral (li ++ (i :: ri))
+                                                          (lv ++ (v' :: rv)) u''
+| ST_Access : forall li lv u i v, value (TLiteral li lv u) ->
+                                  lookup i li lv = Some v ->
+                                  TAccess (TLiteral li lv u) i ==> v
 | ST_AccessS : forall r r' i, r ==> r' -> TAccess r i ==> TAccess r' i
     where "t1 '==>' t2" := (step t1 t2).
 
@@ -229,18 +245,15 @@ Inductive has_type : context -> term -> type -> Prop :=
 | T_Nat : forall G n, has_type G (TNum n) TNat
 | T_Plus : forall G l r, has_type G l TNat -> has_type G r TNat -> has_type G (TPlus l r) TNat
 | T_EqNat : forall G l r, has_type G l TNat -> has_type G r TNat -> has_type G (TEqNat l r) TBool
-| T_Literal : forall G lv lt,
-                Forall2 (fun p1 p2 =>
-                          fst p1 = fst p2 /\
-                          has_type G (snd p1) (snd p2))
-                        lv lt ->
-                has_type G (TLiteral lv) (TRecord lt)
-| T_Access : forall G lv lt i v T,
-               has_type G (TLiteral lv) (TRecord lt) ->
-               In (i,v) lv -> In (i,T) lt ->
-               has_type G (TAccess (TLiteral lv) i) T.
+| T_Literal : forall G li lv lt u u',
+                Forall2 (has_type G) lv lt ->
+                has_type G (TLiteral li lv u) (TRecord li lt u')
+| T_Access : forall G li lv lt u u' i v T,
+               has_type G (TLiteral li lv u) (TRecord li lt u') ->
+               In (i,v) (combine li lv) -> In (i,T) (combine li lt) ->
+               has_type G (TAccess (TLiteral li lv u) i) T.
 Set Elimination Schemes.
-Print Forall2.
+
 Definition has_type_ind :=
 fun (P : context -> term -> type -> Prop)
   (f : forall (G : id -> option type) (x : id) (T : type),
@@ -267,17 +280,16 @@ fun (P : context -> term -> type -> Prop)
         has_type G l TNat ->
         P G l TNat ->
         has_type G r TNat -> P G r TNat -> P G (TEqNat l r) TBool)
-  (f8 : forall (G : context) (lv : list (id * term)) (lt : list (id * type)),
-          Forall2
-          (fun (p1 : id * term) (p2 : id * type) =>
-           fst p1 = fst p2 /\ P G (snd p1) (snd p2)) lv lt ->
-        P G (TLiteral lv) (TRecord lt))
-  (f9 : forall (G : context) (lv : list (id * term)) 
-          (lt : list (id * type)) (i : id) (v : term) 
+  (f8 : forall (G : context) li (lv : list term) (lt : list type) u u',
+          Forall2 (P G) lv lt -> 
+        P G (TLiteral li lv u) (TRecord li lt u'))
+  (f9 : forall (G : context) li (lv : list term)
+          (lt : list type) u u' (i : id) (v : term) 
           (T : type),
-        has_type G (TLiteral lv) (TRecord lt) ->
-        P G (TLiteral lv) (TRecord lt) ->
-        In (i, v) lv -> In (i, T) lt -> P G (TAccess (TLiteral lv) i) T) =>
+        has_type G (TLiteral li lv u) (TRecord li lt u') ->
+        P G (TLiteral li lv u) (TRecord li lt u') ->
+        In (i, v) (combine li lv) -> In (i, T) (combine li lt) ->
+        P G (TAccess (TLiteral li lv u) i) T) =>
 fix F (c : context) (t : term) (t0 : type) (h : has_type c t t0) {struct h} : P c t t0 :=
   match h in (has_type c0 t1 t2) return (P c0 t1 t2) with
     | T_Var G x T e => f G x T e
@@ -292,35 +304,23 @@ fix F (c : context) (t : term) (t0 : type) (h : has_type c t t0) {struct h} : P 
     | T_Nat G n => f5 G n
     | T_Plus G l r h0 h1 => f6 G l r h0 (F G l TNat h0) h1 (F G r TNat h1)
     | T_EqNat G l r h0 h1 => f7 G l r h0 (F G l TNat h0) h1 (F G r TNat h1)
-    | T_Literal G lv lt f10 => f8 G lv lt
-                                  ((fix forallrec term_list type_list
-                                        (f5 : Forall2 (fun (p1 : (id * term))
-                                                           (p2 : (id * type)) =>
-                                                         fst p1 = fst p2 /\
-                                                         has_type G (snd p1) (snd p2))
-                                                      term_list type_list) :
-                                    Forall2 (fun (p1 : id * term)
-                                                                (p2 : id * type) =>
-                                                              fst p1 = fst p2 /\
-                                                              P G (snd p1) (snd p2))
-                                            term_list type_list := 
-                                      match f5 with
-                                        | Forall2_nil => Forall2_nil
-                                                           (fun (p1 : id * term)
-                                                                (p2 : id * type) =>
-                                                              fst p1 = fst p2 /\
-                                                              P G (snd p1) (snd p2))
-                                        | Forall2_cons termP typeP terms types
-                                                       ht forall2_rest =>
-                                          match ht with
-                                            | conj l r =>
-                                              Forall2_cons termP typeP
-                                                           (conj l (F G (snd termP) (snd typeP) r))
-                                                           (forallrec terms types forall2_rest)
-                                          end
-                                      end) lv lt f10)
-    | T_Access G lv lt i v T h0 i0 i1 =>
-      f9 G lv lt i v T h0 (F G (TLiteral lv) (TRecord lt) h0) i0 i1
+    | T_Literal G li lv lt u u' f10 =>
+      f8 G li lv lt u u'
+         ((fix forallrec term_list type_list
+               (f5 : Forall2 (has_type G)
+                             term_list type_list) :
+             Forall2 (P G)
+                     term_list type_list := 
+             match f5 with
+               | Forall2_nil => Forall2_nil (P G)
+               | Forall2_cons term type terms types
+                              ht forall2_rest =>
+                 Forall2_cons term type
+                              (F G term type ht)
+                              (forallrec terms types forall2_rest)
+             end) lv lt f10)
+    | T_Access G li lv lt u u' i v T h0 i0 i1 =>
+      f9 G li lv lt u u' i v T h0 (F G (TLiteral li lv u) (TRecord li lt u') h0) i0 i1
   end.
 
 Tactic Notation "has_type_cases" tactic(first) ident(c) :=
