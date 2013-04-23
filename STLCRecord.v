@@ -404,9 +404,8 @@ Proof with eauto.
     right.
       exists v. apply ST_Access. apply H1. SearchAbout In. apply in_split in H.
       inversion H; subst. inversion H2; subst.
+Admitted.
 
-          
-Qed.
 
 Inductive appears_free_in : id -> term -> Prop :=
 | AFI_Var : forall x,
@@ -439,16 +438,23 @@ Inductive appears_free_in : id -> term -> Prop :=
                 appears_free_in x (TEqNat l r)
 | AFI_EqNat2 : forall x l r,
                 appears_free_in x r ->
-                appears_free_in x (TEqNat l r).
+                appears_free_in x (TEqNat l r)
+| AFI_Record : forall x id t left right,
+                 appears_free_in x t ->
+                 appears_free_in x (TLiteral (left ++ (id, t) :: right))
+| AFI_Access : forall x t id,
+                 appears_free_in x t ->
+                 appears_free_in x (TAccess t id).
 
 Tactic Notation "afi_cases" tactic(first) ident(c) :=
   first;
-  [ Case_aux c "AFI_Var"  | Case_aux c "AFI_App1"
-  | Case_aux c "AFI_App2" | Case_aux c "AFI_Lambda"
-  | Case_aux c "AFI_If1"  | Case_aux c "AFI_If2"
-  | Case_aux c "AFI_If3"  | Case_aux c "AFI_Plus1"
-  | Case_aux c "AFI_Plus2" | Case_aux c "AFI_EqNat1"
-  | Case_aux c "AFI_EqNat2" ].
+  [ Case_aux c "AFI_Var"    | Case_aux c "AFI_App1"
+  | Case_aux c "AFI_App2"   | Case_aux c "AFI_Lambda"
+  | Case_aux c "AFI_If1"    | Case_aux c "AFI_If2"
+  | Case_aux c "AFI_If3"    | Case_aux c "AFI_Plus1"
+  | Case_aux c "AFI_Plus2"  | Case_aux c "AFI_EqNat1"
+  | Case_aux c "AFI_EqNat2" | Case_aux c "AFI_Record"
+  | Case_aux c "AFI_Access" ].
 
 Hint Constructors appears_free_in.
 
@@ -464,7 +470,13 @@ Proof.
   afi_cases (induction H) Case; intros; try solve [inversion H0; eauto].
     Case "AFI_Lambda". inversion H1. subst. apply IHappears_free_in in H7.
       apply not_eq_beq_id_false in H. rewrite extend_neq in H7; assumption.
-Qed.
+    Case "AFI_Record".
+      admit.
+    Case "AFI_Access".
+      inversion H0; subst.
+      apply IHappears_free_in in H3.
+      exact H3.
+Admitted.
 
 Lemma context_invariance : forall gamma gamma' t T,
                              has_type gamma t T ->
@@ -479,7 +491,7 @@ Proof with eauto.
     unfold extend. remember (beq_id x x0). destruct b...
   Case "T_App".
     eapply T_App...
-Qed.
+Admitted.
 
 Lemma substitution_preserves_typing : forall gamma x U t t' T,
                                         has_type (extend gamma x U) t T ->
@@ -503,6 +515,7 @@ Proof with eauto.
       remember (beq_id y z) as e0. destruct e0...
       apply beq_id_eq in Heqe0. subst.
       rewrite <- Heqe...
+  Case "T_Literal".
 Qed.
 
 Theorem preservation : forall t t' T,
@@ -527,6 +540,7 @@ Qed.
 Definition normal_form {X:Type} (R:relation X) (t:X) : Prop :=
   ~ exists t', R t t'.
   
+
 Definition stuck (t : term) : Prop :=
   (normal_form step) t /\ ~ value t.
 
