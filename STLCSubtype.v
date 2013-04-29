@@ -31,7 +31,7 @@ Set Elimination Schemes.
  generated does not provide an inductive hypotheses for TRecords.
  This lets us provide our own induction function that fixes the issue.
  *)
-Definition type_rec := 
+Definition type_ind := 
 fun (P : type -> Prop) (type_rect_tbool : P TBool) (type_rect_tnat : P TNat)
   (type_rect_tarrow : forall t : type, P t -> forall t0 : type, P t0 -> P (TArrow t t0))
   (type_rect_trecord : forall li lt, Forall P lt -> P (TRecord li lt))
@@ -56,7 +56,14 @@ fix F (t : type) : P t :=
 
 Hint Constructors type.
 
+Tactic Notation "type_cases" tactic(first) ident(c) :=
+  first;
+  [ Case_aux c "TBool"  | Case_aux c "TNat"
+  | Case_aux c "TArrow" | Case_aux c "T_Record"
+  | Case_aux c "TTop"].
+
 (* subtype a b <-> a <: b *)
+Unset Elimination Schemes.
 Inductive subtype : type -> type -> Prop :=
   | Sub_refl : forall t, subtype t t
   | Sub_trans : forall a b c, subtype a b -> subtype b c -> subtype a c
@@ -76,10 +83,52 @@ Inductive subtype : type -> type -> Prop :=
   | Sub_r_perm : forall li lt li' lt',
                    Permutation (combine li lt) (combine li' lt') ->
                    subtype (TRecord li lt) (TRecord li' lt').
+Set Elimination Schemes.
 
 Hint Constructors subtype.
 
+Definition subtype_ind := fun (P : type -> type -> Prop)
+                              (f_refl : forall t, P t t)
+                              (f_trans : forall a b c, P a b -> P b c -> P a c)
+                              (f_top : forall t, P t TTop)
+                              (f_arrow : forall a a' r r', P a' a ->
+                                                           P r r' ->
+                                                           P (TArrow a r) (TArrow a' r'))
+                              (f_width : forall li li' lt lt',
+                                           length li = length lt ->
+                                           length li' = length lt' ->
+                                           P (TRecord (li ++ li') (lt++lt'))
+                                             (TRecord li lt))
+                              (f_depth : forall li lt lt',
+                                           length li = length lt ->
+                                           length li = length lt' ->
+                                           Forall2 P lt lt' ->
+                                           P (TRecord li lt) (TRecord li lt'))
+                              (f_perm : forall li lt li' lt',
+                                          Permutation (combine li lt) (combine li' lt') ->
+                                          P (TRecord li lt) (TRecord li' lt')) =>
+fix F (t1 t2 : type) (st : subtype t1 t2) : P t1 t2 :=
+  match st with
+    | Sub_refl t => f_refl t
+    | Sub_trans a b c ab bc => f_trans a b c (F a b ab) (F b c bc)
+    | Sub_top t => f_top t
+    | Sub_arrow a a' r r' a'a rr' => f_arrow a a' r r' (F a' a a'a) (F r r' rr')
+    | Sub_r_width li li' lt lt' lli lli' => f_width li li' lt lt' lli lli'
+    | Sub_r_depth li lt lt' llt llt' fora => f_depth li lt lt' llt llt'
+      ((fix G lt lt' (fora : Forall2 subtype lt lt') : Forall2 P lt lt' :=
+          match fora with
+            | Forall2_nil => Forall2_nil P
+            | Forall2_cons t t' lt lt' Rc Rr => Forall2_cons t t' (F t t' Rc) (G lt lt' Rr)
+          end) lt lt' fora) 
+    | Sub_r_perm li lt li' lt' perm => f_perm li lt li' lt' perm
+  end.
 
+Tactic Notation "subtype_cases" tactic(first) ident(c) :=
+  first;
+  [ Case_aux c "Sub_refl"    | Case_aux c "Sub_trans"
+  | Case_aux c "Sub_top"     | Case_aux c "Sub_arrow"
+  | Case_aux c "Sub_r_width" | Case_aux c "Sub_r_depth"
+  | Case_aux c "Sub_r_perm" ].
 
 (* terms *)
 Unset Elimination Schemes.
@@ -174,6 +223,12 @@ Definition value_ind := fun (P : term -> Prop)
      | Forall_cons t ts vt tvs => Forall_cons t (F t vt) (forallrec ts tvs)
      end) lv f5)
   end.
+
+Tactic Notation "value_cases" tactic(first) ident(c) :=
+  first;
+  [ Case_aux c "v_abs" | Case_aux c "v_true"
+  | Case_aux c "v_false" | Case_aux c "v_nat"
+  | Case_aux c "v_literal" ].
 
 Hint Constructors value.
 
@@ -321,7 +376,11 @@ Inductive has_type : context -> term -> type -> Prop :=
 | T_Access : forall G li lv lt i v T,
                has_type G (TLiteral li lv) (TRecord li lt) ->
                In (i,v) (combine li lv) -> In (i,T) (combine li lt) ->
-               has_type G (TAccess (TLiteral li lv) i) T.
+               has_type G (TAccess (TLiteral li lv) i) T
+| T_Subtype : forall G t T T',
+                has_type G t T ->
+                subtype T T' ->
+                has_type G t T'.
 Set Elimination Schemes.
 
 Definition has_type_ind :=
@@ -363,7 +422,8 @@ fun (P : context -> term -> type -> Prop)
         has_type G (TLiteral li lv) (TRecord li lt ) ->
         P G (TLiteral li lv) (TRecord li lt ) ->
         In (i, v) (combine li lv) -> In (i, T) (combine li lt) ->
-        P G (TAccess (TLiteral li lv) i) T) =>
+        P G (TAccess (TLiteral li lv) i) T)
+  (f10 : forall G t T T', P G t T -> subtype T T' -> P G t T') =>
 fix F (c : context) (t : term) (t0 : type) (h : has_type c t t0) {struct h} : P c t t0 :=
   match h in (has_type c0 t1 t2) return (P c0 t1 t2) with
     | T_Var G x T e => f G x T e
@@ -395,6 +455,7 @@ fix F (c : context) (t : term) (t0 : type) (h : has_type c t t0) {struct h} : P 
              end) lv lt f10) f10
     | T_Access G li lv lt i v T h0 i0 i1 =>
       f9 G li lv lt i v T h0 (F G (TLiteral li lv) (TRecord li lt) h0) i0 i1
+    | T_Subtype G t T T' ht st => f10 G t T T' (F G t T ht) st
   end.
 
 Tactic Notation "has_type_cases" tactic(first) ident(c) :=
@@ -404,10 +465,33 @@ Tactic Notation "has_type_cases" tactic(first) ident(c) :=
   | Case_aux c "T_False" | Case_aux c "T_If"
   | Case_aux c "T_Nat"   | Case_aux c "T_Plus"
   | Case_aux c "T_EqNat" | Case_aux c "T_Literal"
-  | Case_aux c "T_Access" ].
+  | Case_aux c "T_Access" | Case_aux c "T_Subtype" ].
 
 Hint Constructors has_type.
 Hint Unfold beq_nat beq_id extend.
+
+Lemma consistent_subtypes_lambda :
+  forall T T' A R,
+    subtype T T' -> T' = (TArrow A R) -> exists A' R', T = TArrow A' R'.
+Proof with auto.
+  intros. generalize dependent A. generalize dependent R.
+  subtype_cases (induction H) Case; intros; try solve by inversion.
+  Case "Sub_refl". exists A. exists R...
+  Case "Sub_trans". apply IHsubtype0 in H0. inversion H0.
+    inversion H. apply IHsubtype in H1...
+  Case "Sub_arrow". exists a. exists r...
+Qed.
+
+Lemma canonical_forms_lambda :
+  forall G t T A R,
+    has_type G t T -> T = (TArrow A R) -> value t -> exists i ty te, t = TLambda i ty te.
+Proof with auto.
+  intros. generalize dependent A. generalize dependent R.
+  has_type_cases (induction H) Case; intros; try solve by inversion.
+  Case "T_Lambda". exists x. exists T11. exists t12...
+  Case "T_Subtype". apply consistent_subtypes_lambda with (A := A) (R := R) in H...
+    inversion H. inversion H2. apply IHhas_type with (R := x0) (A := x)...
+Qed.
 
 Theorem progress : forall t T, 
      has_type empty t T ->
@@ -420,8 +504,11 @@ Proof with eauto.
   Case "T_App". right. destruct IHHt1...
     SCase "t1 is a value". destruct IHHt2...
       SSCase "t2 is a value".
-        inversion H; subst; try solve by inversion.
-        exists ([x := t2] t). constructor...
+        value_cases (inversion H) SSSCase; subst;
+          try solve [apply canonical_forms_lambda with (A := T11) (R := T12) in Ht1; auto;
+                     inversion Ht1 as (e,he); inversion he as (e1, he1);
+                     inversion he1 as (e2,he2); inversion he2].
+        SSSCase "v_abs". exists ([x := t2] t). constructor...
       SSCase "t2 steps". inversion H0. exists (TApp t1 x). constructor...
     SCase "t1 steps". inversion H. exists (TApp x t2). constructor...
   Case "T_If". right. destruct IHHt1...
