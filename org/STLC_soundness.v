@@ -138,22 +138,44 @@ Lemma free_in_context : forall x t T gamma,
 Proof with eauto.
   intros x t T gamma H H0. generalize dependent gamma.
   generalize dependent T.
-  afi_cases (induction H) Case; intros; try solve [inversion H0; eauto].
+  afi_cases (induction H) Case; intros.
+  (* try (try remember (TVar x); try remember (TApp t1 t2);
+   try remember (TLambda y T11 t12); try remember (TIf t1 t2 t3);
+   try remember (TPlus l r); induction H0; inversion Heqt; subst; eauto).*)
     Case "AFI_Var".
-inversion H0; subst...
-      SCase "subtype T0 T".
-        exists T0. 
-
-
-    Case "AFI_Lambda". inversion H1. subst. apply IHappears_free_in in H7.
-      apply not_eq_beq_id_false in H. rewrite extend_neq in H7; assumption.
+      remember (TVar x).
+      has_type_cases (induction H0) SCase; inversion Heqt; subst...
+    Case "AFI_App1". remember (TApp t1 t2).
+      has_type_cases (induction H0) SCase; inversion Heqt; subst...
+    Case "AFI_App2". remember (TApp t1 t2).  induction H0; inversion Heqt; subst...
+    Case "AFI_Lambda".
+      remember (TLambda y T11 t12).
+      has_type_cases (induction H1) SCase; inversion Heqt; subst...
+      SCase "T_Lambda". apply IHappears_free_in in H1.
+        apply not_eq_beq_id_false in H. rewrite extend_neq in H1; assumption.
+    Case "AFI_If1".
+      remember (TIf t1 t2 t3); induction H0; inversion Heqt; subst...
+    Case "AFI_If2".
+      remember (TIf t1 t2 t3); induction H0; inversion Heqt; subst...
+    Case "AFI_If3".
+      remember (TIf t1 t2 t3); induction H0; inversion Heqt; subst...
+    Case "AFI_Plus1".
+      remember (TPlus l r); induction H0; inversion Heqt; subst...
+    Case "AFI_Plus2".
+      remember (TPlus l r); induction H0; inversion Heqt; subst...
+    Case "AFI_EqNat1".
+      remember (TEqNat l r); induction H0; inversion Heqt; subst...
+    Case "AFI_EqNat2".
+      remember (TEqNat l r); induction H0; inversion Heqt; subst...
     Case "AFI_Record".
-      inversion H0; subst... apply Forall2_app_inv_l in H3. inversion H3.
-      inversion H1. inversion H2. inversion H7. inversion H9; subst.
+      remember (TLiteral (leftI ++ id :: rightI) (leftT ++ t :: rightT)).
+      induction H0; inversion Heqt0; subst...
+      apply Forall2_app_inv_l in H4. inversion H4.
+      inversion H5. inversion H6. inversion H8. inversion H9. subst.
       apply IHappears_free_in with (T := y). assumption.
     Case "AFI_Access".
-      inversion H0; subst.
-      apply IHappears_free_in in H3. assumption.
+      remember (TAccess t id).
+      induction H0; inversion Heqt0; subst...
 Qed.
 
 Lemma context_invariance : forall gamma gamma' t T,
@@ -166,7 +188,7 @@ Proof with eauto.
   has_type_cases (induction H) Case; intros; try solve [auto].
   Case "T_Var". apply T_Var. rewrite <- H0...
   Case "T_Lambda". apply T_Lambda. apply IHhas_type. intros x0 Hafi.
-    unfold extend. remember (beq_id x x0). destruct b...
+    unfold SfLib.extend. remember (beq_id x x0). destruct b...
   Case "T_App".
     eapply T_App...
   Case "T_Literal".
@@ -182,6 +204,7 @@ Proof with eauto.
                               (rightI := rightI)
                               (rightT := rightT)...
   Case "T_Access". eapply T_Access...
+  Case "T_Subtype". apply IHhas_type in H0. apply T_Subtype with (T := T)...
 Qed.
 
 Lemma combine_map {A} {B} {C} : forall (f : B -> C) (l1 : list A) (l2 : list B),
@@ -200,16 +223,23 @@ Lemma substitution_preserves_typing : forall gamma x U t t' T,
 Proof with eauto.
   intros gamma x U t t' T Ht Ht'.
   generalize dependent gamma. generalize dependent T.
-  term_cases (induction t) Case; intros T gamma H'; inversion H'; subst; simpl...
-  Case "TVar". rename i into y. remember (beq_id x y) as e. destruct e.
-    SCase "x=y". apply beq_id_eq in Heqe. subst. rewrite extend_eq in H1.
-      inversion H1. subst. eapply context_invariance... intros x Hcontra.
-      destruct (free_in_context _ _ T empty Hcontra)... inversion H.
-    SCase "x<>y". constructor. rewrite extend_neq in H1...
-  Case "TLambda". rename i into y. apply T_Lambda.
-    remember (beq_id x y) as e. destruct e.
+  term_cases (induction t) Case; intros T gamma H'; remember (extend gamma x U).
+  (* ; inversion H'; subst; simpl...*)
+  Case "TVar". rename i into y.
+  remember (TVar y).
+  induction H'; inversion Heqt; subst; simpl...
+  remember (beq_id x y) as e. destruct e.
+    SCase "x=y". apply beq_id_eq in Heqe. subst. rewrite extend_eq in H.
+      inversion H. subst. eapply context_invariance... intros x Hcontra.
+      destruct (free_in_context _ _ T empty Hcontra)... inversion H0.
+    SCase "x<>y". constructor. rewrite extend_neq in H...
+  Case "TApp".
+    remember (TApp t1 t2); induction H'; inversion Heqt; subst; simpl...
+  Case "TLambda". rename i into y.
+    remember (TLambda y t t0). induction H'; inversion Heqt1; subst; simpl...
+    apply T_Lambda. remember (beq_id x y) as e. destruct e.
     SCase "x=y". eapply context_invariance... apply beq_id_eq in Heqe. subst.
-      intros x Hafi. unfold extend. remember (beq_id y x) as e. destruct e...
+      intros x Hafi. unfold SfLib.extend. remember (beq_id y x) as e. destruct e...
     SCase "x<>y".
       apply IHt. eapply context_invariance... intros z Hafi. unfold extend.
       remember (beq_id y z) as e0. destruct e0...
