@@ -1,0 +1,85 @@
+DIGEST bf18650bbe145a636b6f4a3d936e0849
+Futil
+R15:19 SfLib <> <> lib
+ind 33:36 <> Uniq
+constr 71:78 <> Uniq_nil
+constr 92:100 <> Uniq_cons
+R51:54 Coq.Init.Datatypes <> list ind
+R82:85 util <> Uniq ind
+R87:88 SfLib <> ::'['_']' not
+R145:148 util <> Uniq ind
+R152:155 Coq.Init.Datatypes <> :list_scope:x_'::'_x not
+R151:151 util <> x var
+R156:157 util <> xs var
+R134:137 util <> Uniq ind
+R139:140 util <> xs var
+R117:119 Coq.Init.Logic <> not def
+R122:123 Coq.Lists.List <> In def
+R127:128 util <> xs var
+R125:125 util <> x var
+R180:183 util <> Uniq ind
+prf 193:200 <> uniq_app
+R224:227 Coq.Init.Datatypes <> list ind
+R229:229 util <> T var
+R259:262 Coq.Init.Logic <> :type_scope:x_'/\'_x not
+R252:255 util <> Uniq ind
+R257:258 util <> l1 var
+R263:266 util <> Uniq ind
+R268:269 util <> l2 var
+R233:236 util <> Uniq ind
+R241:244 Coq.Init.Datatypes <> :list_scope:x_'++'_x not
+R239:240 util <> l1 var
+R245:246 util <> l2 var
+R423:431 Coq.Lists.List <> in_or_app thm
+R423:431 Coq.Lists.List <> in_or_app thm
+def 461:471 <> partial_map
+R493:498 Coq.Init.Datatypes <> option ind
+R500:500 util <> A var
+R487:488 SfLib <> id ind
+def 515:519 <> empty
+R534:544 util <> partial_map def
+R546:546 util <> A var
+R561:564 Coq.Init.Datatypes <> None constr
+def 580:585 <> extend
+R603:613 util <> partial_map def
+R615:615 util <> A var
+R623:624 SfLib <> id ind
+R632:632 util <> A var
+R653:658 SfLib <> beq_id def
+R662:663 util <> x' var
+R660:660 util <> x var
+R682:682 util <> G var
+R684:685 util <> x' var
+R670:673 Coq.Init.Datatypes <> Some constr
+R675:675 util <> T var
+prf 695:703 <> extend_eq
+R723:733 util <> partial_map def
+R735:735 util <> A var
+R764:766 Coq.Init.Logic <> :type_scope:x_'='_x not
+R746:751 util <> extend def
+R760:760 util <> T var
+R758:758 util <> x var
+R753:756 util <> ctxt var
+R763:763 util <> x var
+R767:770 Coq.Init.Datatypes <> Some constr
+R772:772 util <> T var
+R799:804 util <> extend def
+R820:830 SfLib <> beq_id_refl thm
+R820:830 SfLib <> beq_id_refl thm
+prf 860:869 <> extend_neq
+R889:899 util <> partial_map def
+R901:901 util <> A var
+R962:964 Coq.Init.Logic <> :type_scope:x_'='_x not
+R942:947 util <> extend def
+R957:957 util <> T var
+R954:955 util <> x2 var
+R949:952 util <> ctxt var
+R960:961 util <> x1 var
+R965:968 util <> ctxt var
+R970:971 util <> x1 var
+R927:929 Coq.Init.Logic <> :type_scope:x_'='_x not
+R915:920 SfLib <> beq_id def
+R925:926 util <> x1 var
+R922:923 util <> x2 var
+R930:934 Coq.Init.Datatypes <> false constr
+R1000:1005 util <> extend def

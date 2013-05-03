@@ -204,3 +204,39 @@ Proof with auto.
   Case "T_Subtype". apply consistent_subtypes_lambda' with (A := A) (R := R) in H...
     inversion H. inversion H2. apply IHhas_type with (R := x0) (A := x)...
 Qed.
+
+
+(* needs to be extended, we will need something about the types of the stuff in the literal.
+Note that we can't say Forall2 (has_type G) lv lt, since in the presence of subtyping,
+ids can move around. *)
+Lemma record_type_info :
+  forall (G : context) (liv lit : list id) (lv : list term) (lt : list type),
+    has_type G (TLiteral liv lv) (TRecord lit lt) -> Uniq liv /\ length liv = length lv.
+Proof with auto.
+  intros. remember (TLiteral liv lv) as TLit. remember (TRecord lit lt) as TRec.
+  generalize dependent liv; generalize dependent lv.
+  generalize dependent lit; generalize dependent lt.
+  has_type_cases (induction H) Case; intros; subst; try solve by inversion...
+  Case "T_Literal".
+    inversion HeqTRec; subst. inversion HeqTLit; subst...
+  Case "T_Subtype".
+    apply consistent_subtypes_record in H.
+    inversion H; subst. inversion H0; subst.
+    apply IHhas_type with (lt := x0) (lit := x)...
+Qed.
+
+Lemma record_type_info' :
+  forall G t T liv lit lv lt,
+    has_type G t T -> t = (TLiteral liv lv) -> T = (TRecord lit lt) ->
+    Uniq liv /\ length liv = length lv.
+Proof with eauto.
+  intros. generalize dependent liv. generalize dependent lv.
+  generalize dependent lit. generalize dependent lt.
+  has_type_cases (induction H) Case; intros; try solve by inversion...
+  Case "T_Literal". inversion H4. inversion H5. subst. subst...
+  Case "T_Subtype". subst.
+    apply consistent_subtypes_record' with (li' := lit) (lt' := lt) in H...
+    inversion H. inversion H0. 
+    apply IHhas_type with (lt := x0) (lit := x) (lv0 := lv) (liv0 := liv)...
+Qed.
+
