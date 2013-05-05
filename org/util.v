@@ -13,7 +13,7 @@ Proof with auto.
 Qed.
 
 
-
+(*
 Definition partial_map (A : Type) := id -> option A.
 
 Definition empty {A : Type} : partial_map A := (fun _ => None).
@@ -37,7 +37,7 @@ Proof.
   unfold extend. rewrite -> H.
   reflexivity.
 Qed.
-
+*)
 
 Lemma combine_map {A} {B} {C} : forall (f : B -> C) (l1 : list A) (l2 : list B),
                                   combine l1 (map f l2) = map (fun p =>

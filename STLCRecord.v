@@ -259,9 +259,6 @@ Notation "t1 '==>*' t2" := (multistep t1 t2) (at level 40).
 
 Definition context := partial_map type.
 
-(* TODO: Fix induction like type induction on has_type in the
- T_Literal case doesn't have that the Forall2's has_types
- imply anything *)
 Unset Elimination Schemes.
 Inductive has_type : context -> term -> type -> Prop :=
 | T_Var : forall G x T,
