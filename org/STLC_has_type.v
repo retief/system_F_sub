@@ -205,6 +205,13 @@ Proof with auto.
     inversion H. inversion H2. apply IHhas_type with (R := x0) (A := x)...
 Qed.
 
+(*
+Lemma record_type_info1 :
+  forall (G : context) (li : list id) (lt : list term) (T : type),
+    has_type G (TLiteral li lt) T ->
+    exists (li' : list id) (lT : list type),
+      forall x : id
+*)
 
 (* needs to be extended, we will need something about the types of the stuff in the literal.
 Note that we can't say Forall2 (has_type G) lv lt, since in the presence of subtyping,

@@ -1,4 +1,4 @@
-DIGEST bf18650bbe145a636b6f4a3d936e0849
+DIGEST 891e88009f236940930d0cf9002895ea
 Futil
 R15:19 SfLib <> <> lib
 ind 33:36 <> Uniq
@@ -83,3 +83,13 @@ R925:926 util <> x1 var
 R922:923 util <> x2 var
 R930:934 Coq.Init.Datatypes <> false constr
 R1000:1005 util <> extend def
+prf 1050:1061 <> length_0_nil
+R1089:1092 Coq.Init.Datatypes <> list ind
+R1094:1094 util <> A var
+R1113:1117 Coq.Init.Logic <> :type_scope:x_'<->'_x not
+R1109:1111 Coq.Init.Logic <> :type_scope:x_'='_x not
+R1100:1105 Coq.Init.Datatypes <> length def
+R1107:1108 util <> la var
+R1120:1122 Coq.Init.Logic <> :type_scope:x_'='_x not
+R1118:1119 util <> la var
+R1123:1124 SfLib <> ::'['_']' not

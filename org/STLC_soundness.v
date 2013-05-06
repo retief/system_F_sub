@@ -245,6 +245,25 @@ Proof with eauto.
   Case "TEqNat". simpl.
     remember (TEqNat t1 t2) as rem. induction H'; inversion Heqrem; subst...
   Case "TLiteral".
+simpl.
+remember (TLiteral li lv) as rem. induction H'; inversion Heqrem; subst; auto...
+apply T_Literal... simpl in H.
+generalize dependent li. generalize dependent lt.
+induction H; intros; destruct lt; try solve by inversion...
+SCase "base".
+  inversion H2; subst. SearchAbout length. inversion H1.
+apply Forall2_nil.
+apply Forall2_nil.
+
+apply Forall2_cons. inversion H4...
+inversion H4. destruct li; try solve by inversion; subst...
+apply IHForall with li...
+inversion H2...
+
+inversion H5... subst.
+
+
+
     constructor... generalize dependent li. generalize dependent lt.
     induction H; intros.
     SCase "base". inversion H2. constructor.
