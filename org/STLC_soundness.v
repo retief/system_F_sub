@@ -245,6 +245,11 @@ Proof with eauto.
   Case "TEqNat". simpl.
     remember (TEqNat t1 t2) as rem. induction H'; inversion Heqrem; subst...
   Case "TLiteral".
+
+induction H; intros.
+destruct li; try solve by inversion.
+
+
 simpl.
 remember (TLiteral li lv) as rem. induction H'; inversion Heqrem; subst; auto...
 apply T_Literal... simpl in H.
