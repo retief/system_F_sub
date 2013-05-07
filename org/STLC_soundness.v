@@ -197,19 +197,6 @@ Proof with eauto.
     apply IHhas_type in H0. apply T_Subtype with (T := T)...
 Qed.
 
-Lemma weird_forall_forall2 {A B C : Type} :
-  forall (P : A -> B -> C -> Prop) f f1 l l' g,
-    Forall (fun t =>
-              forall T g,
-                P (f g) t T -> P g (f1 t) T) l ->
-    Forall2 (P (f g)) l l' ->
-    Forall2 (P g) (map f1 l) l'.
-Proof with auto.
-  intros.
-  induction H0; simpl in *...
-  inversion H. subst.
-  constructor...
-Qed.
 
 Lemma substitution_preserves_typing : forall gamma x U t t' T,
                                         has_type (extend gamma x U) t T ->
@@ -218,20 +205,28 @@ Lemma substitution_preserves_typing : forall gamma x U t t' T,
 Proof with eauto.
   intros gamma x U t t' T Ht Ht'.
   generalize dependent gamma. generalize dependent T.
-  term_cases (induction t) Case; intros T gamma H'; remember (extend gamma x U).
-  (* ; inversion H'; subst; simpl...*)
-  Case "TVar". rename i into y.
-  remember (TVar y).
-  induction H'; inversion Heqt; subst; simpl...
-  remember (beq_id x y) as e. destruct e.
-    SCase "x=y". apply beq_id_eq in Heqe. subst. rewrite extend_eq in H.
-      inversion H. subst. eapply context_invariance... intros x Hcontra.
-      destruct (free_in_context _ _ T empty Hcontra)... inversion H0.
-    SCase "x<>y". constructor. rewrite extend_neq in H...
-  Case "TApp".
-    remember (TApp t1 t2); induction H'; inversion Heqt; subst; simpl...
-  Case "TLambda". rename i into y.
-    remember (TLambda y t t0). induction H'; inversion Heqt1; subst; simpl...
+  term_cases (induction t) Case; intros T gamma H';
+  remember (extend gamma x U); simpl;
+  [ rename i into y; remember (TVar y) as rem
+  | remember (TApp t1 t2) as rem
+  | rename i into y; remember (TLambda y t t0) as rem
+  | remember TTrue as rem
+  | remember TFalse as rem
+  | remember (TIf t1 t2 t3) as rem
+  | remember (TNum n) as rem
+  | remember (TPlus t1 t2) as rem
+  | remember (TEqNat t1 t2) as rem
+  | remember (TLiteral li lv) as rem
+  | remember (TAccess t i) as rem];
+  induction H'; inversion Heqrem; subst...
+
+  Case "TVar".
+    remember (beq_id x y) as e. destruct e.
+      SCase "x=y". apply beq_id_eq in Heqe. subst. rewrite extend_eq in H.
+        inversion H. subst. eapply context_invariance... intros x Hcontra.
+        destruct (free_in_context _ _ T empty Hcontra)... inversion H0.
+      SCase "x<>y". constructor. rewrite extend_neq in H...
+  Case "TLambda".
     apply T_Lambda. remember (beq_id x y) as e. destruct e.
     SCase "x=y".
       eapply context_invariance...
@@ -244,69 +239,16 @@ Proof with eauto.
       remember (beq_id y z) as e0. destruct e0...
       apply beq_id_eq in Heqe0. subst.
       rewrite <- Heqe...
-  Case "TTrue".
-    remember TTrue as rem. induction H'; inversion Heqrem; subst...
-  Case "TFalse".
-    remember TFalse as rem. induction H'; inversion Heqrem; subst...
-  Case "TIf". simpl.
-    remember (TIf t1 t2 t3) as rem. induction H'; inversion Heqrem; subst...
-  Case "TNum". simpl.
-    remember (TNum n) as rem. induction H'; inversion Heqrem; subst...
-  Case "TPlus". simpl.
-    remember (TPlus t1 t2) as rem. induction H'; inversion Heqrem; subst...
-  Case "TEqNat". simpl.
-    remember (TEqNat t1 t2) as rem. induction H'; inversion Heqrem; subst...
   Case "TLiteral".
-    simpl.
-    remember (TLiteral li lv) as rem. induction H'; inversion Heqrem; subst; auto...
-    constructor...
+    apply T_Literal...
     apply weird_forall_forall2 with (l' := lt) (g := gamma) in H...
     rewrite map_length...
   Case "TAccess".
-    remember (TAccess t i) as rem. induction H'; intros; inversion Heqrem; subst...
-    eapply T_Access with (v := subst x t' v)... fold subst. inversion H'; subst;
-    rewrite combine_map; apply in_map_iff; exists (i,v)...
+    eapply T_Access with (v := subst x t' v)...
+    inversion H'; subst; rewrite combine_map; apply in_map_iff; exists (i,v)...
 Qed.
 
-Lemma combine_3 {A B C} : forall (x : A) (y : B) (z : C) xs ys zs,
-                    In (x,y) (combine xs ys) ->
-                    In (x,z) (combine xs zs) ->
-                    Uniq xs ->
-                    In (y,z) (combine ys zs).
-Proof with auto.
-  induction xs.
-  Case "base". simpl in *. intros. inversion H.
-  Case "inductive". intros. destruct ys; try solve by inversion.
-    destruct zs; try solve by inversion. simpl in *.
-    inversion H; inversion H0; try solve by inversion.
-    inversion H2; inversion H3; subst.
-    left...
-    inversion H2; subst. inversion H1. subst.
-    contradict H6. apply (in_combine_l xs zs x z)...
-    inversion H3; subst. inversion H1. subst.
-    contradict H6. apply (in_combine_l xs ys x y)...
-    right. inversion H1. apply IHxs...
-Qed.
 
-Lemma Forall2_combine_in {A B} : forall P (x : A) (y : B) xs ys,
-                                   In (x,y) (combine xs ys) ->
-                                   Forall2 P xs ys ->
-                                   P x y.
-Proof with auto.
-  intros. induction H0; try solve by inversion.
-  Case "Inductive". simpl in H.  inversion H...
-  inversion H2; subst...
-Qed.
-
-Lemma combine_app {A B} : forall l1 l2 l3 l4 (x : A) (y : B),
-                      length l1 = length l2 ->
-                      (combine l1 l2) ++ (@combine A B l3 l4) = combine (l1 ++ l3) (l2 ++ l4).
-Proof with auto.
-  intros. inversion H.
-  generalize dependent l2.
-  induction l1; intros; destruct l2; try solve by inversion...
-  Case "Inductive". simpl. rewrite IHl1...
-Qed.  
 
 Theorem preservation : forall t t' T,
                          has_type empty t T ->
