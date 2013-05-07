@@ -197,7 +197,19 @@ Proof with eauto.
     apply IHhas_type in H0. apply T_Subtype with (T := T)...
 Qed.
 
-
+Lemma weird_forall_forall2 {A B C : Type} :
+  forall (P : A -> B -> C -> Prop) f f1 l l' g,
+    Forall (fun t =>
+              forall T g,
+                P (f g) t T -> P g (f1 t) T) l ->
+    Forall2 (P (f g)) l l' ->
+    Forall2 (P g) (map f1 l) l'.
+Proof with auto.
+  intros.
+  induction H0; simpl in *...
+  inversion H. subst.
+  constructor...
+Qed.
 
 Lemma substitution_preserves_typing : forall gamma x U t t' T,
                                         has_type (extend gamma x U) t T ->
@@ -245,41 +257,15 @@ Proof with eauto.
   Case "TEqNat". simpl.
     remember (TEqNat t1 t2) as rem. induction H'; inversion Heqrem; subst...
   Case "TLiteral".
-
-induction H; intros.
-destruct li; try solve by inversion.
-
-
-simpl.
-remember (TLiteral li lv) as rem. induction H'; inversion Heqrem; subst; auto...
-apply T_Literal... simpl in H.
-generalize dependent li. generalize dependent lt.
-induction H; intros; destruct lt; try solve by inversion...
-SCase "base".
-  inversion H2; subst. SearchAbout length. inversion H1.
-apply Forall2_nil.
-apply Forall2_nil.
-
-apply Forall2_cons. inversion H4...
-inversion H4. destruct li; try solve by inversion; subst...
-apply IHForall with li...
-inversion H2...
-
-inversion H5... subst.
-
-
-
-    constructor... generalize dependent li. generalize dependent lt.
-    induction H; intros.
-    SCase "base". inversion H2. constructor.
-    SCase "inductive". destruct lt; try solve by inversion. constructor.
-      inversion H2. apply H...
-      inversion H2. destruct li; try solve by inversion. inversion H3.
-      apply IHForall with (li := li)...
-      rewrite map_length...
+    simpl.
+    remember (TLiteral li lv) as rem. induction H'; inversion Heqrem; subst; auto...
+    constructor...
+    apply weird_forall_forall2 with (l' := lt) (g := gamma) in H...
+    rewrite map_length...
   Case "TAccess".
-    eapply T_Access with (v := subst x t' v)... inversion H1. subst.
-    rewrite combine_map. apply in_map_iff. exists (i,v)...
+    remember (TAccess t i) as rem. induction H'; intros; inversion Heqrem; subst...
+    eapply T_Access with (v := subst x t' v)... inversion H'; subst;
+    rewrite combine_map; apply in_map_iff; exists (i,v)...
 Qed.
 
 Lemma combine_3 {A B C} : forall (x : A) (y : B) (z : C) xs ys zs,
