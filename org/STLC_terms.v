@@ -64,6 +64,25 @@ Tactic Notation "term_cases" tactic(first) ident(c) :=
 
 Hint Constructors term.
 
+
+(*
+Fixpoint typeof (t : term) (G : context) : option type :=
+  match t with
+  | TTrue -> Some TBool
+  | TFalse -> Some TBool
+  | TNum n -> Some TNat
+  | TVar x -> (G x)
+  | TLambda x xT b -> TArrow xT (typeof b G)
+  | TApp app arg -> (match (typeof app G) with
+                    | Some (TArrow arg' ret) -> (match (typeof arg G) with
+                                                | Some T -> if is_subtype T arg' then ret else None
+                                                | _ -> None
+                                                end)
+                    | _ -> None
+                    end)
+  | TIf cond t e -> 
+*)
+
 Unset Elimination Schemes.
 Inductive value : term -> Prop :=
 | v_abs : forall x T t, value (TLambda x T t)

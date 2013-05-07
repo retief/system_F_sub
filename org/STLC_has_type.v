@@ -209,9 +209,14 @@ Qed.
 Lemma record_type_info1 :
   forall (G : context) (li : list id) (lt : list term) (T : type),
     has_type G (TLiteral li lt) T ->
-    exists (li' : list id) (lT : list type),
-      forall x : id
-*)
+    exists (lT : list type),
+      Forall2 (fun x xT => has_type G x xT) lt lT /\ T = (TRecord li lT).
+Proof.
+  intros.
+  
+  remember (TLiteral li lt) as rem. induction H; inversion Heqrem; subst...
+  *)
+
 
 (* needs to be extended, we will need something about the types of the stuff in the literal.
 Note that we can't say Forall2 (has_type G) lv lt, since in the presence of subtyping,
