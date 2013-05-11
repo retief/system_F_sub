@@ -217,3 +217,13 @@ Proof with eauto.
   Case "Sub_trans". apply IHsubtype0 in H0.
     inversion H0. inversion H...
 Qed.
+
+
+Lemma record_subtype_inversion :
+  forall (li : list id) (lT : list type) (S : type),
+    subtype S (TRecord li lT) -> exists li' lT',
+      S = (TRecord li' lT') /\
+      Forall2 (fun i T => exists T',
+        In (i, T') (combine li' lT') /\ subtype T' T) li lT.
+Admitted.
+
