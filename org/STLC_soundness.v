@@ -369,6 +369,10 @@ Lemma literal_info :
     Uniq li /\
     length li = length lv /\
     length li = length lt.
+Proof with eauto.
+  intros. remember (TLiteral li lv).
+  remember (TRecord li lt).
+  has_type_cases (induction H) Case; inversion Heqt; inversion Heqt0; subst...
 Admitted.
 
 Theorem preservation : forall t t' T,
