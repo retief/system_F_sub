@@ -81,6 +81,8 @@ Definition subtype_ind := fun (P : type -> type -> Prop)
                               (f_top : forall t, P t TTop)
                               (f_arrow : forall a a' r r', P a' a ->
                                                            P r r' ->
+                                                           subtype a' a ->
+                                                           subtype r r' ->
                                                            P (TArrow a r) (TArrow a' r'))
                               (f_width : forall li li' lt lt',
                                            length li = length lt ->
@@ -100,7 +102,7 @@ fix F (t1 t2 : type) (st : subtype t1 t2) : P t1 t2 :=
     | Sub_refl t => f_refl t
     | Sub_trans a b c ab bc => f_trans a b c (F a b ab) (F b c bc)
     | Sub_top t => f_top t
-    | Sub_arrow a a' r r' a'a rr' => f_arrow a a' r r' (F a' a a'a) (F r r' rr')
+    | Sub_arrow a a' r r' a'a rr' => f_arrow a a' r r' (F a' a a'a) (F r r' rr') a'a rr'
     | Sub_r_width li li' lt lt' lli lli' => f_width li li' lt lt' lli lli'
     | Sub_r_depth li lt lt' llt llt' fora => f_depth li lt lt' llt llt'
       ((fix G lt lt' (fora : Forall2 subtype lt lt') : Forall2 P lt lt' :=
@@ -158,19 +160,27 @@ Qed.
 
 Lemma consistent_subtypes_lambda :
   forall (T A R : type),
-    subtype T (TArrow A R) -> exists (A' R' : type), T = TArrow A' R'.
+    subtype T (TArrow A R) -> exists (A' R' : type),
+                                ((T = TArrow A' R') /\ subtype A A' /\ subtype R' R).
 Proof with eauto.
   intros. remember (TArrow A R) as x.
   generalize dependent A; generalize dependent R.
   subtype_cases (induction H) Case; intros; try solve by inversion.
   Case "Sub_refl".
-    exists A. exists R. exact Heqx.
+    exists A. exists R. split; try split; auto.
   Case "Sub_trans".
     apply IHsubtype0 in Heqx.
     inversion Heqx. inversion H.
-    apply IHsubtype in H0. exact H0.
+    inversion H0. inversion H2.
+    clear Heqx. clear H. clear H2. clear H0.
+    apply IHsubtype in H1.
+    inversion H1. inversion H.
+    inversion H0. inversion H5.
+    clear H1. clear H. clear H0. clear H5.
+    exists x1, x2.
+    split; try split...
   Case "Sub_arrow".
-    exists a. exists r...
+    exists a. exists r. inversion Heqx. subst. split; try split...
 Qed.
 
 Lemma consistent_subtypes_lambda' :

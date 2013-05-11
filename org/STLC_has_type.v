@@ -83,7 +83,7 @@ fun (P : context -> term -> type -> Prop)
         P G (TLiteral li lv) (TRecord li lt ) ->
         In (i, v) (combine li lv) -> In (i, T) (combine li lt) ->
         P G (TAccess (TLiteral li lv) i) T)
-  (f10 : forall G t T T', P G t T -> subtype T T' -> P G t T') =>
+  (f10 : forall G t T T', P G t T -> subtype T T' -> has_type G t T -> P G t T') =>
 fix F (c : context) (t : term) (t0 : type) (h : has_type c t t0) {struct h} : P c t t0 :=
   match h in (has_type c0 t1 t2) return (P c0 t1 t2) with
     | T_Var G x T e => f G x T e
@@ -115,7 +115,7 @@ fix F (c : context) (t : term) (t0 : type) (h : has_type c t t0) {struct h} : P 
              end) lv lt f10) f10
     | T_Access G li lv lt i v T h0 i0 i1 =>
       f9 G li lv lt i v T h0 (F G (TLiteral li lv) (TRecord li lt) h0) i0 i1
-    | T_Subtype G t T T' ht st => f10 G t T T' (F G t T ht) st
+    | T_Subtype G t T T' ht st => f10 G t T T' (F G t T ht) st ht
   end.
 
 Hint Constructors has_type.
@@ -189,7 +189,7 @@ Proof with auto.
   Case "T_Subtype".
     subst.
     apply consistent_subtypes_lambda with T0 A R in H.
-    inversion H. inversion H1; subst.
+    inversion H. inversion H2. inversion H3; subst.
     apply IHhas_type with x0 x in H0...
 Qed.
 
@@ -202,7 +202,7 @@ Proof with auto.
   has_type_cases (induction H) Case; intros; try solve by inversion.
   Case "T_Lambda". exists x. exists T11. exists t12...
   Case "T_Subtype". apply consistent_subtypes_lambda' with (A := A) (R := R) in H...
-    inversion H. inversion H2. apply IHhas_type with (R := x0) (A := x)...
+    inversion H. inversion H3. apply IHhas_type with (R := x0) (A := x)...
 Qed.
 
 (*
@@ -233,7 +233,7 @@ Proof with auto.
     inversion HeqTRec; subst. inversion HeqTLit; subst...
   Case "T_Subtype".
     apply consistent_subtypes_record in H.
-    inversion H; subst. inversion H0; subst.
+    inversion H; subst. inversion H1; subst.
     apply IHhas_type with (lt := x0) (lit := x)...
 Qed.
 
@@ -248,7 +248,7 @@ Proof with eauto.
   Case "T_Literal". inversion H4. inversion H5. subst. subst...
   Case "T_Subtype". subst.
     apply consistent_subtypes_record' with (li' := lit) (lt' := lt) in H...
-    inversion H. inversion H0. 
+    inversion H. inversion H1. 
     apply IHhas_type with (lt := x0) (lit := x) (lv0 := lv) (liv0 := liv)...
 Qed.
 
