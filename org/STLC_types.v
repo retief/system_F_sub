@@ -70,6 +70,7 @@ Inductive subtype : type -> type -> Prop :=
                     subtype (TRecord li lt) (TRecord li lt')
   | Sub_r_perm : forall li lt li' lt',
                    Permutation (combine li lt) (combine li' lt') ->
+                   length li = length lt -> length li' = length lt' ->
                    subtype (TRecord li lt) (TRecord li' lt').
 Set Elimination Schemes.
 
@@ -77,7 +78,9 @@ Hint Constructors subtype.
 
 Definition subtype_ind := fun (P : type -> type -> Prop)
                               (f_refl : forall t, P t t)
-                              (f_trans : forall a b c, P a b -> P b c -> P a c)
+                              (f_trans : forall a b c, P a b -> P b c ->
+                                                       subtype a b -> subtype b c ->
+                                                       P a c)
                               (f_top : forall t, P t TTop)
                               (f_arrow : forall a a' r r', P a' a ->
                                                            P r r' ->
@@ -96,11 +99,13 @@ Definition subtype_ind := fun (P : type -> type -> Prop)
                                            P (TRecord li lt) (TRecord li lt'))
                               (f_perm : forall li lt li' lt',
                                           Permutation (combine li lt) (combine li' lt') ->
+                                          length li = length lt ->
+                                          length li' = length lt' ->
                                           P (TRecord li lt) (TRecord li' lt')) =>
 fix F (t1 t2 : type) (st : subtype t1 t2) : P t1 t2 :=
   match st with
     | Sub_refl t => f_refl t
-    | Sub_trans a b c ab bc => f_trans a b c (F a b ab) (F b c bc)
+    | Sub_trans a b c ab bc => f_trans a b c (F a b ab) (F b c bc) ab bc
     | Sub_top t => f_top t
     | Sub_arrow a a' r r' a'a rr' => f_arrow a a' r r' (F a' a a'a) (F r r' rr') a'a rr'
     | Sub_r_width li li' lt lt' lli lli' => f_width li li' lt lt' lli lli'
@@ -110,7 +115,7 @@ fix F (t1 t2 : type) (st : subtype t1 t2) : P t1 t2 :=
             | Forall2_nil => Forall2_nil P
             | Forall2_cons t t' lt lt' Rc Rr => Forall2_cons t t' (F t t' Rc) (G lt lt' Rr)
           end) lt lt' fora) 
-    | Sub_r_perm li lt li' lt' perm => f_perm li lt li' lt' perm
+    | Sub_r_perm li lt li' lt' perm lli lli' => f_perm li lt li' lt' perm lli lli'
   end.
 
 Tactic Notation "subtype_cases" tactic(first) ident(c) :=
@@ -130,9 +135,9 @@ Proof.
     assert (TB : c = TBool).
     (* this seems weird but it is necessary so that we remember [c = TBool] *)
     exact Heqx.
-    apply IHsubtype0 in Heqx; subst.
+    apply IHsubtype2 in Heqx; subst.
     assert (TBool = TBool). reflexivity.
-    apply IHsubtype in H. exact H.
+    apply IHsubtype1 in H1. exact H1.
 Qed.
 
 Lemma no_subtypes_bool' :
@@ -148,8 +153,8 @@ Proof with auto.
   subtype_cases (induction H) Case; try solve by inversion...
   Case "Sub_trans".
     assert (TN : c = TNat). exact HeqTN.
-    apply IHsubtype0 in HeqTN; subst.
-    apply IHsubtype...
+    apply IHsubtype2 in HeqTN; subst.
+    apply IHsubtype1...
 Qed.
 
 Lemma no_subtypes_nat' :
@@ -169,14 +174,14 @@ Proof with eauto.
   Case "Sub_refl".
     exists A. exists R. split; try split; auto.
   Case "Sub_trans".
-    apply IHsubtype0 in Heqx.
-    inversion Heqx. inversion H.
-    inversion H0. inversion H2.
-    clear Heqx. clear H. clear H2. clear H0.
-    apply IHsubtype in H1.
-    inversion H1. inversion H.
-    inversion H0. inversion H5.
-    clear H1. clear H. clear H0. clear H5.
+    apply IHsubtype2 in Heqx.
+    inversion Heqx. inversion H1.
+    inversion H2. inversion H4.
+    clear Heqx. clear H1. clear H2. clear H4.
+    apply IHsubtype1 in H3.
+    inversion H3. inversion H1.
+    inversion H2. inversion H7.
+    clear H1. clear H3. clear H2. clear H7.
     exists x1, x2.
     split; try split...
   Case "Sub_arrow".
@@ -190,8 +195,8 @@ Proof with eauto.
   intros. generalize dependent A. generalize dependent R.
   subtype_cases (induction H) Case; intros; try solve by inversion.
   Case "Sub_refl". exists A. exists R...
-  Case "Sub_trans". apply IHsubtype0 in H0. inversion H0.
-    inversion H. apply IHsubtype in H1...
+  Case "Sub_trans". apply IHsubtype2 in H1. inversion H1.
+    inversion H2. apply IHsubtype1 in H3...
   Case "Sub_arrow". exists a. exists r...
 Qed.
 
@@ -204,8 +209,8 @@ Proof with eauto.
   generalize dependent li; generalize dependent lt.
   subtype_cases (induction H) Case; intros; try solve by inversion...
   Case "Sub_trans".
-    apply IHsubtype0 in HeqTRec.
-    inversion HeqTRec. inversion H...
+    apply IHsubtype2 in HeqTRec.
+    inversion HeqTRec. inversion H1...
 Qed.
 
 Lemma consistent_subtypes_record' :
@@ -214,8 +219,8 @@ Lemma consistent_subtypes_record' :
 Proof with eauto.
   intros. generalize dependent li'. generalize dependent lt'.
   subtype_cases (induction H) Case; intros; try solve by inversion...
-  Case "Sub_trans". apply IHsubtype0 in H0.
-    inversion H0. inversion H...
+  Case "Sub_trans". apply IHsubtype2 in H1.
+    inversion H1. inversion H2...
 Qed.
 
 

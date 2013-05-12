@@ -1,4 +1,5 @@
 Require Import SfLib.
+Require Import Permutation.
 
 Inductive Uniq {t : Type} : list t -> Prop :=
 | Uniq_nil : Uniq []
@@ -12,7 +13,100 @@ Proof with auto.
     constructor... intro. contradict H2. apply in_or_app. left...
 Qed.
 
+Lemma combine_eq {A B : Type} : forall (a c : list A) (b d : list B),
+                     combine a b = combine c d ->
+                     length a = length b ->
+                     length c = length d ->
+                     a = c /\ b = d.
+Proof with auto.
+  intros. generalize dependent b. generalize dependent c. generalize dependent d.
+  induction a; intros.
+    Case "nil". destruct b; destruct c; destruct d; try solve by inversion...
+    Case "cons". destruct b; destruct c; destruct d; try solve by inversion.
+      simpl in *. inversion H0. inversion H. inversion H1.
+      apply IHa with (b := b0) in H7... inversion H7... rewrite H2. rewrite H8...
+Qed.
 
+Lemma permutation_in {A} :
+  forall x (l l' : list A),
+    Permutation l l' ->
+    In x l' ->
+    In x l.
+Proof with auto.
+  intros.
+  induction H...
+  Case "skip". unfold In.
+    unfold In in H0. inversion H0...
+    apply IHPermutation in H1...
+  Case "swap". unfold In in H0.
+    unfold In.
+    inversion H0...
+    inversion H...
+Qed.
+  
+Lemma uniq_permutation {A : Type} :
+  forall (l l' : list A),
+    Permutation l l' ->
+    Uniq l ->
+    Uniq l'.
+Proof with auto.
+  intros.
+  induction H...
+  Case "skip".
+    inversion H0. apply IHPermutation in H4.
+    constructor... intro.
+    apply (permutation_in x l l') in H5...
+  Case "swap".
+    inversion H0. inversion H3. constructor...
+    intro. contradict H2. unfold In in H8. inversion H8.
+    rewrite H2. simpl...
+    apply H6 in H2. inversion H2.
+    constructor... intro. contradict H2.
+    unfold In...
+Qed.
+
+Lemma combine_pairs {A B : Type} :
+  forall (ab : list (A*B)),
+  exists a b, combine a b = ab /\ length a = length b.
+Proof with auto.
+  intros.
+  induction ab.
+  Case "nil". exists []. exists []. simpl...
+  Case "cons".  inversion IHab. inversion H. inversion H0.  destruct a.
+    exists (a :: x). exists (b :: x0). simpl. rewrite <- H1...
+Qed.
+
+Lemma permutation_combine {A B : Type} : forall (a c : list A) (b d : list B),
+                              length a = length b ->
+                              length c = length d ->
+                              Permutation (combine a b) (combine c d) ->
+                              Permutation a c /\ Permutation b d.
+Proof with eauto.
+  intros. remember (combine a b). remember (combine c d).
+  generalize dependent a. generalize dependent b.
+  generalize dependent c. generalize dependent d.
+  induction H1; intros.
+  Case "nil". unfold combine in *.
+    destruct a; destruct b; destruct c; destruct d; try solve by inversion...
+  Case "skip".
+    destruct a; destruct b; destruct c; destruct d; try solve by inversion...
+    simpl in *. inversion Heql0. inversion Heql. subst. inversion H5. subst.
+    inversion H0. apply IHPermutation with (d0 := d) (c0 := c) (b := b0) (a := a0) in H3...
+    inversion H3...
+  Case "swap".
+    destruct a; destruct b; destruct c; destruct d; try solve by inversion.
+    destruct a0; destruct b0; destruct c; destruct d; try solve by inversion.
+    simpl in *. inversion Heql. inversion Heql0. subst. inversion H6. inversion H5. subst.
+    inversion H0. inversion H. apply combine_eq in H7... inversion H7. rewrite H1.
+    rewrite H4. split; constructor.
+  Case "trans".
+    subst. assert (exists a b, combine a b = l' /\ length a = length b). apply combine_pairs.
+    inversion H1. inversion H2. inversion H3. clear H1. clear H2. clear H3. subst.
+    remember H5. clear Heqe.
+    apply IHPermutation1 with (d := x0) (c := x) (b0 := b) (a0 := a) in H5...
+    apply IHPermutation2 with (d0 := d) (c0 := c) (a := x) (b := x0) in H0...
+    inversion H0. inversion H5. split; eapply perm_trans...
+Qed.
 
 Definition partial_map (A : Type) := id -> option A.
 

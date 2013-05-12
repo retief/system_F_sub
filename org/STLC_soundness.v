@@ -362,6 +362,39 @@ Proof with eauto.
     induction H; inversion Heqt; subst...
 Qed.
 
+Lemma has_type_record_lemma :
+  forall G li lv li' lt,
+    has_type G (TLiteral li lv) (TRecord li' lt) ->
+    length li = length lv /\ length li' = length lt /\ Uniq li /\ Uniq li'.
+Proof with eauto.
+  intros.
+  remember (TLiteral li lv). remember (TRecord li' lt).
+  generalize dependent li'. generalize dependent lt.
+  has_type_cases (induction H) Case; intros; inversion Heqt; inversion Heqt0; subst.
+  Case "T_Literal". inversion Heqt0. subst...
+  Case "T_Subtype". remember H. clear Heqs. apply consistent_subtypes_record in s.
+    inversion s. inversion H3. clear s. clear H3. clear H2. subst. 
+    apply IHhas_type with (lt := x0) (li' := x) in H1...
+    inversion H1. clear H1. inversion H3. inversion H4. clear H4.
+    clear H3. clear IHhas_type.
+    remember (TRecord li' lt). remember (TRecord x x0). generalize dependent li'.
+    generalize dependent lt. generalize dependent x. generalize x0.
+    subtype_cases (induction H) SCase; intros; inversion Heqt; inversion Heqt0; subst...
+      SCase "Sub_refl". inversion H. subst...
+      SCase "Sub_trans". remember H1. clear Heqs.
+        apply consistent_subtypes_record in s. inversion s. inversion H8. subst.
+        clear s. clear H8.
+        remember H0. clear Heqh.
+        apply IHsubtype1 with (x0 := x1) (x4 := x) (lt := x3) (li' := x2) in h...
+        inversion h. inversion H9. inversion H11. clear h. clear H9. clear H11.
+        apply T_Subtype with (T' := TRecord x2 x3) in H0...
+      SCase "Sub_r_width". split... split... split.... apply uniq_app in H6. inversion H6...
+      SCase "Sub_r_depth". subst...
+      SCase "Sub_r_perm". split... split... split... 
+        apply permutation_combine in H... inversion H.
+        apply uniq_permutation in H7...
+Qed.
+        
 Lemma literal_info :
   forall G li lv lt,
     has_type G (TLiteral li lv) (TRecord li lt) ->
@@ -371,9 +404,12 @@ Lemma literal_info :
     length li = length lt.
 Proof with eauto.
   intros. remember (TLiteral li lv).
-  remember (TRecord li lt).
-  has_type_cases (induction H) Case; inversion Heqt; inversion Heqt0; subst...
-Admitted.
+  remember (TRecord li lt). generalize dependent lt. 
+  has_type_cases (induction H) Case; intros; inversion Heqt; inversion Heqt0; subst...
+  apply record_subtype_inversion in H.
+  inversion H. inversion H3. inversion H4.
+  clear H. clear H3. clear H4. subst.
+  clear H2. clear H1.
 
 Theorem preservation : forall t t' T,
                          has_type empty t T ->
