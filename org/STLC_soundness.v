@@ -396,21 +396,86 @@ Proof with eauto.
 Qed.
         
 Lemma literal_info :
-  forall G li lv lt,
-    has_type G (TLiteral li lv) (TRecord li lt) ->
-    Forall2 (has_type G) lv lt /\
-    Uniq li /\
+  forall G li lv li' lt,
+    has_type G (TLiteral li lv) (TRecord li' lt) ->
+    (forall i T, In (i,T) (combine li' lt) -> exists t, In (i,t) (combine li lv) /\
+                                                        has_type G t T) /\
+    Uniq li /\ Uniq li' /\
     length li = length lv /\
-    length li = length lt.
+    length li' = length lt.
 Proof with eauto.
-  intros. remember (TLiteral li lv).
-  remember (TRecord li lt). generalize dependent lt. 
+  intros.
+  remember H. clear Heqh.
+  apply has_type_record_lemma in h. inversion h. inversion H1. inversion H3.
+  split... clear H3. clear H1. clear h. intros.
+  remember (TLiteral li lv).
+  remember (TRecord li' lt). generalize dependent lt. generalize dependent li'.
   has_type_cases (induction H) Case; intros; inversion Heqt; inversion Heqt0; subst...
-  apply record_subtype_inversion in H.
-  inversion H. inversion H3. inversion H4.
-  clear H. clear H3. clear H4. subst.
-  clear H2. clear H1.
+  Case "T_Literal". inversion Heqt0. subst. clear H10. clear Heqt. clear H3.
+    clear H. clear Heqt0. clear H7. clear H4. clear H6. remember H8. clear Heqi0.
+    apply in_combine_r in i0. remember H8. clear Heqi1. apply in_combine_l in i1.
+    rewrite H1 in H0. generalize dependent lv. generalize dependent li'.
+    induction lt0; intros; try solve by inversion;
+    destruct lv; destruct li'; try solve by inversion.
+    inversion H8. subst. inversion H5. subst. inversion H. subst. exists t. split...
+    unfold In. simpl...
+    simpl in *. assert (i <> i2).
+    SCase "Proof of assertion". intro. subst. apply in_combine_l in H. inversion H2.
+      contradiction.
+    unfold not in H3.
+    assert (In (i,T) (combine li' lt0)). inversion H8...
+    clear H8.
+    apply IHlt0 with (lv := lv) in H4...
+    inversion H4. exists x. inversion H6. split...
+    apply in_combine_r in H4...
+    inversion H2...
+    apply in_combine_l in H4...
+    inversion H5...
+  Case "T_Subtype".
+    remember H.
+    clear Heqs.
+    apply record_subtype_inversion in s.
+    inversion s. inversion H8. inversion H9.
+    clear s. clear H8. clear H9. subst.
+    apply has_type_record_lemma in H1.
+    inversion H1. inversion H9. inversion H12.
+    apply IHhas_type with (li' := x) (lt := x0)...
+    
+    
 
+
+
+
+
+  
+  remember H. clear Heqs.
+  apply record_subtype_inversion in s.
+  inversion s. inversion H7. inversion H8.
+  clear s. clear H7. clear H8. subst.
+  clear H6. clear H3. clear H5.
+Admitted.
+
+Lemma in_equal {A B} :
+  forall (la : list A) (lb lc : list B),
+    (forall x, In x (combine la lc) -> In x (combine la lb)) ->
+    length la = length lb ->
+    length la = length lc ->
+    Uniq la ->
+    lb = lc.
+Proof with auto.
+  intros. generalize dependent lb. generalize dependent lc.
+  induction la; intros; destruct lb; destruct lc; try solve by inversion...
+  Case "cons". simpl in *. inversion H1. inversion H0.
+    remember H5. clear Heqe. inversion H2.
+    apply IHla with (lc := lc) (lb := lb) in e...
+    rewrite e. assert ((a,b0) = (a,b0) \/ In (a,b0) (combine la lc))...
+    apply H in H9. inversion H9. inversion H10. subst...
+    contradict H7. apply in_combine_l in H10...
+    intros.  assert ((a,b0) = x0 \/ In x0 (combine la lc))...
+    apply H in H10. inversion H10... subst. apply in_combine_l in H9.
+    contradiction.
+Qed.
+    
 Theorem preservation : forall t t' T,
                          has_type empty t T ->
                          t ==> t' ->
