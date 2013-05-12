@@ -1,4 +1,5 @@
 Require Import SfLib.
+Require Import Coq.Logic.ClassicalFacts.
 Require Import Permutation.
 
 Inductive Uniq {t : Type} : list t -> Prop :=
