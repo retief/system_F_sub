@@ -221,6 +221,7 @@ Proof.
 (* needs to be extended, we will need something about the types of the stuff in the literal.
 Note that we can't say Forall2 (has_type G) lv lt, since in the presence of subtyping,
 ids can move around. *)
+(*
 Lemma record_type_info :
   forall (G : context) (liv lit : list id) (lv : list term) (lt : list type),
     has_type G (TLiteral liv lv) (TRecord lit lt) -> Uniq liv /\ length liv = length lv.
@@ -233,7 +234,7 @@ Proof with auto.
     inversion HeqTRec; subst. inversion HeqTLit; subst...
   Case "T_Subtype".
     apply consistent_subtypes_record in H.
-    inversion H; subst. inversion H1; subst.
+    inversion H. inversion H1.  inversion H2. inversion H4.  subst.
     apply IHhas_type with (lt := x0) (lit := x)...
 Qed.
 
@@ -252,3 +253,4 @@ Proof with eauto.
     apply IHhas_type with (lt := x0) (lit := x) (lv0 := lv) (liv0 := liv)...
 Qed.
 
+*)

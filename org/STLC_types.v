@@ -214,8 +214,20 @@ Proof with eauto.
   Case "Sub_arrow". exists a. exists r...
 Qed.
 
-
 Lemma consistent_subtypes_record :
+  forall (T : type) (li : list id) (lt : list type), 
+    subtype T (TRecord li lt) ->
+    (exists li' lt', T = TRecord li' lt').
+Proof with eauto.
+  intros T li lt Hsub. remember (TRecord li lt) as TRec.
+  generalize dependent li; generalize dependent lt.
+  subtype_cases (induction Hsub) Case; intros; try solve by inversion...
+  Case "Sub_trans".
+    apply IHHsub2 in HeqTRec...
+    inversion HeqTRec. inversion H...
+Qed.
+
+Lemma consistent_subtypes_record_ex :
   forall (T : type) (li : list id) (lt : list type), length li = length lt -> Uniq li ->
     subtype T (TRecord li lt) ->
     (exists li' lt', T = TRecord li' lt' /\ length li' = length lt' /\ Uniq li').
@@ -244,7 +256,7 @@ Proof with auto.
   intros li lT S Hlen Huniq Hsub.
   remember Hsub.
   clear Heqs.
-  apply consistent_subtypes_record in s...
+  apply consistent_subtypes_record_ex in s...
   inversion s as [li' s']. inversion s' as [lT' s''].
   inversion s''. inversion H0. subst. clear s s' s'' H0.
   exists li'. exists lT'.
@@ -256,40 +268,44 @@ Proof with auto.
   generalize dependent lT.
   generalize dependent li'.
   generalize dependent lT'.
-  subtype_cases (induction Hsub) Case; subst; intros; subst;
-    try solve by inversion...
-
-Case "Sub_refl".
-inversion Heqright_rec; subst. clear Heqright_rec.
-
-exists T; split...
-
-
-Case "Sub_trans".
-apply consistent_subtypes_record in Hsub2...
-inversion Hsub2. inversion H0. inversion H3. inversion H5. clear H0 H3 H5 Hsub2.
-subst. remember Huniq. clear Hequ.
-apply IHHsub2 with (li' := x) (lT' := x0) (lT0 := lT) (li0 := li) (i := i) (T := T) in H...
-inversion H. inversion H0. clear H. clear H0.
-apply IHHsub1 with (lT'0 := lT') (li'0 := li') (li := x) (lT := x0) in H3...
-inversion H3. inversion H. clear H. clear H3.
-exists x2. split... apply Sub_trans with (b := x1)...
-Case "Sub_r_width".
-  inversion Heqleft_rec; subst. clear Heqleft_rec.
-  inversion Heqright_rec; subst. clear Heqright_rec.
-  exists T. split...
-  rewrite <- combine_app...
-  apply in_or_app. left...
-
-Case "Sub_r_depth".
-  inversion Heqleft_rec. inversion Heqright_rec.
-  clear Heqleft_rec. clear Heqright_rec. subst. subst.
-  clear H1 H3. clear H H5 H0.
-
-Case "Sub_r_perm".
-  inversion Heqleft_rec; subst. clear Heqleft_rec.
-  inversion Heqright_rec; subst. clear Heqright_rec.
-  exists T. split...
-  apply permutation_in with (i, T) (combine li'0 lT') (combine li0 lT) in H...
+  subtype_cases (induction Hsub) Case; subst; intros; subst; try solve by inversion...
+  Case "Sub_refl".
+    inversion Heqright_rec; subst. clear Heqright_rec.
+    exists T; split...
+  Case "Sub_trans".
+    apply consistent_subtypes_record_ex in Hsub2...
+    inversion Hsub2. inversion H0. inversion H3. inversion H5. clear H0 H3 H5 Hsub2.
+    subst. remember Huniq. clear Hequ.
+    apply IHHsub2 with (li' := x) (lT' := x0) (lT0 := lT) (li0 := li) (i := i) (T := T) in H...
+    inversion H. inversion H0. clear H. clear H0.
+    apply IHHsub1 with (lT'0 := lT') (li'0 := li') (li := x) (lT := x0) in H3...
+    inversion H3. inversion H. clear H. clear H3.
+    exists x2. split... apply Sub_trans with (b := x1)...
+  Case "Sub_r_width".
+    inversion Heqleft_rec; subst. clear Heqleft_rec.
+    inversion Heqright_rec; subst. clear Heqright_rec.
+    exists T. split...
+    rewrite <- combine_app...
+    apply in_or_app. left...
+  Case "Sub_r_depth".
+    inversion Heqleft_rec. inversion Heqright_rec.
+    clear Heqleft_rec. clear Heqright_rec. subst. subst.
+    clear H1 H3. clear H H5 H0. generalize dependent li0.
+    induction H2; intros; destruct li0; try solve by inversion. simpl in *.
+      remember (beq_id i i0). destruct b. apply beq_id_eq in Heqb. subst.
+      inversion H6. inversion H0. subst. clear H0 H6.
+      exists x...
+      apply in_combine_l in H0. inversion Huniq. contradiction.
+      symmetry in Heqb.
+      apply beq_id_false_not_eq in Heqb.
+      inversion H6.
+      inversion H0. symmetry in H3. contradiction.
+      inversion Hlen. inversion Huniq. apply IHForall2 in H3... subst.
+      inversion H3. inversion H1. clear H1 H3. exists x0. split...
+  Case "Sub_r_perm".
+    inversion Heqleft_rec; subst. clear Heqleft_rec.
+    inversion Heqright_rec; subst. clear Heqright_rec.
+    exists T. split...
+    apply permutation_in with (i, T) (combine li'0 lT') (combine li0 lT) in H...
 Qed.
 
