@@ -410,6 +410,7 @@ Proof with eauto.
   split... clear H3. clear H1. clear h. intros.
   remember (TLiteral li lv).
   remember (TRecord li' lt). generalize dependent lt. generalize dependent li'.
+  generalize dependent T.
   has_type_cases (induction H) Case; intros; inversion Heqt; inversion Heqt0; subst...
   Case "T_Literal". inversion Heqt0. subst. clear H10. clear Heqt. clear H3.
     clear H. clear Heqt0. clear H7. clear H4. clear H6. remember H8. clear Heqi0.
@@ -434,46 +435,42 @@ Proof with eauto.
   Case "T_Subtype".
     remember H.
     clear Heqs.
-    apply record_subtype_inversion in s.
-    inversion s. inversion H8. inversion H9.
-    clear s. clear H8. clear H9. subst.
+    remember s.
+    clear Heqs0.
+    apply consistent_subtypes_record in s0.
+    inversion s0. inversion H8. clear s0. clear H8. subst.
     apply has_type_record_lemma in H1.
-    inversion H1. inversion H9. inversion H12.
-    apply IHhas_type with (li' := x) (lt := x0)...
-    
-    
+    inversion H1. inversion H9. inversion H11.
+    clear H1. clear H9. clear H11.
+    apply record_subtype_inversion in s...
+    inversion s. inversion H1. inversion H9.
+    clear s. clear H1. clear H9.
+    apply H14 in H3. inversion H3. inversion H1.
+    clear H3. clear H1.
+    inversion H11. subst.
+    apply IHhas_type with (li' := x1) (lt := x2) (T := x3) in H9...
+    inversion H9. exists x. inversion H1. split...
+Qed.    
 
-
-
-
-
-  
-  remember H. clear Heqs.
-  apply record_subtype_inversion in s.
-  inversion s. inversion H7. inversion H8.
-  clear s. clear H7. clear H8. subst.
-  clear H6. clear H3. clear H5.
-Admitted.
-
-Lemma in_equal {A B} :
-  forall (la : list A) (lb lc : list B),
-    (forall x, In x (combine la lc) -> In x (combine la lb)) ->
-    length la = length lb ->
-    length la = length lc ->
-    Uniq la ->
-    lb = lc.
+Lemma in_combine_uniq {A B} :
+  forall (la : list A) (lb : list B) a b b',
+    In (a,b) (combine la lb) ->
+    In (a,b') (combine la lb) ->
+    Uniq la -> length la = length lb ->
+    b = b'.
 Proof with auto.
-  intros. generalize dependent lb. generalize dependent lc.
-  induction la; intros; destruct lb; destruct lc; try solve by inversion...
-  Case "cons". simpl in *. inversion H1. inversion H0.
-    remember H5. clear Heqe. inversion H2.
-    apply IHla with (lc := lc) (lb := lb) in e...
-    rewrite e. assert ((a,b0) = (a,b0) \/ In (a,b0) (combine la lc))...
-    apply H in H9. inversion H9. inversion H10. subst...
-    contradict H7. apply in_combine_l in H10...
-    intros.  assert ((a,b0) = x0 \/ In x0 (combine la lc))...
-    apply H in H10. inversion H10... subst. apply in_combine_l in H9.
-    contradiction.
+  intros. generalize dependent lb.
+  induction la; intros; destruct lb; try solve by inversion.
+  Case "cons".
+    simpl in *. inversion H.
+    SCase "a0=a".
+      inversion H3. subst. inversion H0. inversion H4...
+      apply in_combine_l in H4. inversion H1. contradiction.
+    SCase "In (a,b) (combine la lb)".
+      apply IHla with (lb := lb)...
+      inversion H1...
+      inversion H0... inversion H4. subst. apply in_combine_l in H3.
+      inversion H1. contradiction.
 Qed.
     
 Theorem preservation : forall t t' T,
@@ -510,15 +507,17 @@ Proof with eauto.
         inversion H3...
         rewrite app_length in *. rewrite app_length in * ...
   Case "T_Access". inversion HE; subst...
-    apply literal_info in HT; inversion HT.
-    inversion HT as [Forall_HT [HUniq [H_li_lv H_li_lt]]].
-    SCase "literal is value".
-      apply lookup_in_pair in H6... 
-      apply Forall2_combine_in with (xs := lv) (ys := lt)...
-      apply combine_3 with (xs := li) (x := i)...
-    SCase "literal steps".
-      inversion H4; subst. apply IHHT in H4...
-      apply literal_info in H4. subst.
+    SCase "literal is a value".
+      apply literal_info in HT. inversion HT. inversion H2.
+      inversion H4. inversion H8. clear H8. clear H4. clear H2. clear HT.
+      apply lookup_in_pair in H6...
+      apply H1 in H0.
+      inversion H0. clear H0. inversion H2. clear H2.
+      Check in_combine_uniq.
+      apply in_combine_uniq with (b := t') in H0...
+      subst...
+    SCase "Literal steps".
+      inversion H4; subst.
       remember (beq_id i i0); destruct b...
       SSCase "i=i0". apply beq_id_eq in Heqb; subst.
         apply T_Access with (v := v') (lt := lt)...
