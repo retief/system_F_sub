@@ -232,16 +232,6 @@ Proof with eauto.
     split... split... repeat rewrite -> app_length. subst...
 Qed.
 
-Lemma consistent_subtypes_record' :
-  forall T T' li' lt',
-    subtype T T' -> T' = TRecord li' lt' -> exists li lv, T = TRecord li lv.
-Proof with eauto.
-  intros. generalize dependent li'. generalize dependent lt'.
-  subtype_cases (induction H) Case; intros; try solve by inversion...
-  Case "Sub_trans". apply IHsubtype2 in H1.
-    inversion H1. inversion H2...
-Qed.
-
 
 Lemma record_subtype_inversion :
   forall (li : list id) (lT : list type) (S : type),
@@ -258,16 +248,16 @@ Proof with auto.
   inversion s as [li' s']. inversion s' as [lT' s''].
   inversion s''. inversion H0. subst. clear s s' s'' H0.
   exists li'. exists lT'.
-split...
-
-remember (TRecord li' lT') as left_rec;
-remember (TRecord li lT) as right_rec.
-generalize dependent li.
-generalize dependent lT.
-generalize dependent li'.
-generalize dependent lT'.
-subtype_cases (induction Hsub) Case; subst; intros; subst;
-  try solve by inversion...
+  split...
+  (* half of this is [consistent_subtypes_record] so here we prove the other half *)
+  remember (TRecord li' lT') as left_rec;
+  remember (TRecord li lT) as right_rec.
+  generalize dependent li.
+  generalize dependent lT.
+  generalize dependent li'.
+  generalize dependent lT'.
+  subtype_cases (induction Hsub) Case; subst; intros; subst;
+    try solve by inversion...
 
 Case "Sub_refl".
 inversion Heqright_rec; subst. clear Heqright_rec.
@@ -295,13 +285,7 @@ Case "Sub_r_depth".
   inversion Heqleft_rec. inversion Heqright_rec.
   clear Heqleft_rec. clear Heqright_rec. subst. subst.
   clear H1 H3. clear H H5 H0.
-  induction H2; destruct li0; try solve by inversion. simpl in *.
-   remember (beq_id i i0). destruct b. apply beq_id_eq in Heqb. subst. exists y.
-   split...
-(*
-  inversion Heqleft_rec; subst. clear Heqleft_rec.
-  inversion Heqright_rec; subst. clear Heqright_rec.
-*)admit.
+
 Case "Sub_r_perm".
   inversion Heqleft_rec; subst. clear Heqleft_rec.
   inversion Heqright_rec; subst. clear Heqright_rec.
