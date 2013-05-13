@@ -69,15 +69,18 @@ Inductive subtype : type -> type -> Prop :=
   | Sub_r_width : forall li li' lt lt',
                     length li = length lt ->
                     length li' = length lt' ->
+                    Uniq li -> Uniq li' ->
                     subtype (TRecord (li++li') (lt++lt')) (TRecord li lt)
   | Sub_r_depth : forall li lt lt',
                     length li = length lt ->
                     length li = length lt' ->
+                    Uniq li ->
                     Forall2 subtype lt lt' ->
                     subtype (TRecord li lt) (TRecord li lt')
   | Sub_r_perm : forall li lt li' lt',
                    Permutation (combine li lt) (combine li' lt') ->
                    length li = length lt -> length li' = length lt' ->
+                   Uniq li -> Uniq li' ->
                    subtype (TRecord li lt) (TRecord li' lt').
 Set Elimination Schemes.
 
@@ -97,17 +100,21 @@ Definition subtype_ind := fun (P : type -> type -> Prop)
                               (f_width : forall li li' lt lt',
                                            length li = length lt ->
                                            length li' = length lt' ->
+                                           Uniq li -> Uniq li' ->
                                            P (TRecord (li ++ li') (lt++lt'))
                                              (TRecord li lt))
                               (f_depth : forall li lt lt',
                                            length li = length lt ->
                                            length li = length lt' ->
+                                           Uniq li ->
+                                           Forall2 subtype lt lt' ->
                                            Forall2 P lt lt' ->
                                            P (TRecord li lt) (TRecord li lt'))
                               (f_perm : forall li lt li' lt',
                                           Permutation (combine li lt) (combine li' lt') ->
                                           length li = length lt ->
                                           length li' = length lt' ->
+                                          Uniq li -> Uniq li' ->
                                           P (TRecord li lt) (TRecord li' lt')) =>
 fix F (t1 t2 : type) (st : subtype t1 t2) : P t1 t2 :=
   match st with
@@ -115,14 +122,14 @@ fix F (t1 t2 : type) (st : subtype t1 t2) : P t1 t2 :=
     | Sub_trans a b c ab bc => f_trans a b c (F a b ab) (F b c bc) ab bc
     | Sub_top t => f_top t
     | Sub_arrow a a' r r' a'a rr' => f_arrow a a' r r' (F a' a a'a) (F r r' rr') a'a rr'
-    | Sub_r_width li li' lt lt' lli lli' => f_width li li' lt lt' lli lli'
-    | Sub_r_depth li lt lt' llt llt' fora => f_depth li lt lt' llt llt'
+    | Sub_r_width li li' lt lt' lli lli' uli uli' => f_width li li' lt lt' lli lli' uli uli'
+    | Sub_r_depth li lt lt' llt llt' uli fora => f_depth li lt lt' llt llt' uli fora
       ((fix G lt lt' (fora : Forall2 subtype lt lt') : Forall2 P lt lt' :=
           match fora with
             | Forall2_nil => Forall2_nil P
             | Forall2_cons t t' lt lt' Rc Rr => Forall2_cons t t' (F t t' Rc) (G lt lt' Rr)
           end) lt lt' fora) 
-    | Sub_r_perm li lt li' lt' perm lli lli' => f_perm li lt li' lt' perm lli lli'
+    | Sub_r_perm li lt li' lt' perm lli lli' uli uli' => f_perm li lt li' lt' perm lli lli' uli uli'
   end.
 
 Tactic Notation "subtype_cases" tactic(first) ident(c) :=
@@ -209,16 +216,20 @@ Qed.
 
 
 Lemma consistent_subtypes_record :
-  forall (T : type) (li : list id) (lt : list type),
-    subtype T (TRecord li lt) -> exists li' lt', T = TRecord li' lt'.
+  forall (T : type) (li : list id) (lt : list type), length li = length lt -> Uniq li ->
+    subtype T (TRecord li lt) -> (exists li' lt', T = TRecord li' lt' /\ length li' = length lt' /\ Uniq li').
 Proof with eauto.
-  intros. remember (TRecord li lt) as TRec.
+  intros T li lt Hlen Huniq Hsub. remember (TRecord li lt) as TRec.
   generalize dependent li; generalize dependent lt.
-  subtype_cases (induction H) Case; intros; try solve by inversion...
+  subtype_cases (induction Hsub) Case; intros; try solve by inversion...
   Case "Sub_trans".
-    apply IHsubtype2 in HeqTRec.
-    inversion HeqTRec. inversion H1...
-Qed.
+    apply IHHsub2 in HeqTRec...
+    inversion HeqTRec. inversion H... inversion H0... inversion H2...
+  Case "Sub_r_width".
+    inversion HeqTRec; subst. clear HeqTRec.
+    exists (li0 ++ li'). exists (lt0 ++ lt').
+    split... split... repeat rewrite -> app_length. subst...
+Admitted.
 
 Lemma consistent_subtypes_record' :
   forall T T' li' lt',
@@ -249,6 +260,11 @@ clear s s'.
 
 split...
 
+induction Hsub; subst; intros; subst; try solve by inversion...
+
+
+
+
 remember (TRecord li' lT') as left_rec;
 remember (TRecord li lT) as right_rec.
 
@@ -278,13 +294,14 @@ Case "Sub_r_width".
   apply in_or_app. left...
 
 Case "Sub_r_depth".
-(*
   inversion Heqleft_rec; subst. clear Heqleft_rec.
   inversion Heqright_rec; subst. clear Heqright_rec.
-*)
+
   induction H1.
-  SCase "Forall2_nil". admit.
+  SCase "Forall2_nil".
+    inversion Hlen. apply length_0_nil in H3; subst. inversion H2.
   SCase "Forall2_cons".
+    
 
 apply IHForall2...
 
