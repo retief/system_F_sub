@@ -1,13 +1,6 @@
 Require Import SfLib.
 Require Import util.
 Require Import Permutation.
-Require Import Coq.Logic.ClassicalFacts.
-Require Import Permutation.
-
-Axiom prop_ext : forall (P Q : Prop), (P <-> Q) <-> P = Q.
-
-Axiom func_ext2 : forall {A B C : Type} (f g : A -> B -> C),
-  (forall x y, f x y = g x y) <-> f = g.
 
 Hint Resolve beq_id_eq beq_id_false_not_eq.
 
@@ -21,8 +14,11 @@ Inductive type : Type :=
 | TTop : type.
 Set Elimination Schemes.
 (* The issue with induction is that the automatic induction function
- generated does not provide an inductive hypotheses for TRecords.
+ generated does not provide the correct inductive hypothesis for TRecords.
  This lets us provide our own induction function that fixes the issue.
+ Specifically, the correct inductive hypothesis requires that each element
+ in the list of types have a property to construct a TRecord with that
+ property.
  *)
 Definition type_ind := 
 fun (P : type -> Prop) (type_rect_tbool : P TBool) (type_rect_tnat : P TNat)
@@ -86,6 +82,10 @@ Set Elimination Schemes.
 
 Hint Constructors subtype.
 
+(* as with the default induction hypothesis for types,
+   the default induction hypothesis for the subtype relation
+   is incorrect - lists of types in particular need to have
+   the property as part of the hypothesis *)
 Definition subtype_ind := fun (P : type -> type -> Prop)
                               (f_refl : forall t, P t t)
                               (f_trans : forall a b c, P a b -> P b c ->
@@ -140,25 +140,17 @@ Tactic Notation "subtype_cases" tactic(first) ident(c) :=
   | Case_aux c "Sub_r_perm" ].
 
 
+(* various lemmas about the subtyping relations *)
 Lemma no_subtypes_bool :
   forall T, subtype T TBool -> T = TBool.
-Proof.
+Proof with auto.
   intros. remember TBool as x.
   subtype_cases (induction H) Case; try solve [auto; inversion Heqx].
   Case "Sub_trans".
-    assert (TB : c = TBool).
-    (* this seems weird but it is necessary so that we remember [c = TBool] *)
-    exact Heqx.
-    apply IHsubtype2 in Heqx; subst.
-    assert (TBool = TBool). reflexivity.
-    apply IHsubtype1 in H1. exact H1.
+    remember Heqx. clear Heqe.
+    apply IHsubtype2 in Heqx; subst...
 Qed.
 
-Lemma no_subtypes_bool' :
-  forall T T', subtype T T' -> T' = TBool -> T = TBool.
-Proof with auto.
-  intros. subtype_cases (induction H) Case; try solve by inversion...
-Qed.
 
 Lemma no_subtypes_nat :
   forall T, subtype T TNat -> T = TNat.
@@ -166,15 +158,8 @@ Proof with auto.
   intros. remember TNat as TN.
   subtype_cases (induction H) Case; try solve by inversion...
   Case "Sub_trans".
-    assert (TN : c = TNat). exact HeqTN.
-    apply IHsubtype2 in HeqTN; subst.
-    apply IHsubtype1...
-Qed.
-
-Lemma no_subtypes_nat' :
-  forall T T', subtype T T' -> T' = TNat -> T = TNat.
-Proof with auto.
-  intros. induction H; try solve by inversion...
+    remember HeqTN. clear Heqe.
+    apply IHsubtype2 in HeqTN; subst...
 Qed.
 
 Lemma consistent_subtypes_lambda :
@@ -186,33 +171,20 @@ Proof with eauto.
   generalize dependent A; generalize dependent R.
   subtype_cases (induction H) Case; intros; try solve by inversion.
   Case "Sub_refl".
-    exists A. exists R. split; try split; auto.
+    exists A, R. split; try split; auto.
   Case "Sub_trans".
     apply IHsubtype2 in Heqx.
-    inversion Heqx. inversion H1.
-    inversion H2. inversion H4.
-    clear Heqx. clear H1. clear H2. clear H4.
+    inversion Heqx. inversion H1. inversion H2. inversion H4.
+    clear Heqx H1 H2 H4.
     apply IHsubtype1 in H3.
-    inversion H3. inversion H1.
-    inversion H2. inversion H7.
-    clear H1. clear H3. clear H2. clear H7.
+    inversion H3. inversion H1. inversion H2. inversion H7.
+    clear H1 H3 H2 H7.
     exists x1, x2.
     split; try split...
   Case "Sub_arrow".
-    exists a. exists r. inversion Heqx. subst. split; try split...
+    exists a, r. inversion Heqx. subst. split; try split...
 Qed.
 
-Lemma consistent_subtypes_lambda' :
-  forall T T' A R,
-    subtype T T' -> T' = (TArrow A R) -> exists A' R', T = TArrow A' R'.
-Proof with eauto.
-  intros. generalize dependent A. generalize dependent R.
-  subtype_cases (induction H) Case; intros; try solve by inversion.
-  Case "Sub_refl". exists A. exists R...
-  Case "Sub_trans". apply IHsubtype2 in H1. inversion H1.
-    inversion H2. apply IHsubtype1 in H3...
-  Case "Sub_arrow". exists a. exists r...
-Qed.
 
 Lemma consistent_subtypes_record :
   forall (T : type) (li : list id) (lt : list type), 
@@ -227,6 +199,8 @@ Proof with eauto.
     inversion HeqTRec. inversion H...
 Qed.
 
+(* this is a stronger form of the above lemma; it requires more hypotheses,
+   but proves a more significant result about the form of a subtype of a TRecord *)
 Lemma consistent_subtypes_record_ex :
   forall (T : type) (li : list id) (lt : list type), length li = length lt -> Uniq li ->
     subtype T (TRecord li lt) ->
@@ -240,23 +214,31 @@ Proof with eauto.
     inversion HeqTRec. inversion H... inversion H0... inversion H2... subst.    
   Case "Sub_r_width".
     inversion HeqTRec; subst. clear HeqTRec.
-    exists (li0 ++ li'). exists (lt0 ++ lt').
-    split... split... repeat rewrite -> app_length. subst...
+    exists (li0 ++ li'), (lt0 ++ lt').
+    split...
+    split...
+    repeat rewrite -> app_length. subst...
 Qed.
 
 
+(* this lemma effectively serves as a replacement for inversion on hypotheses of the form
+   [subtype S (TRecord li lT)].  With the introduction of subtyping,
+   ordinary inversion did not suffice since a descent into subtypes would result;
+   this lemma resolves that problem.  It is essentially an even stronger form
+   of the [consistent_subtypes_record_ex] lemma, which is used in the proof of this
+   lemma. *)
 Lemma record_subtype_inversion :
   forall (li : list id) (lT : list type) (S : type),
     length li = length lT -> Uniq li ->
     subtype S (TRecord li lT) -> exists li' lT',
       S = (TRecord li' lT') /\
-      forall i T, In (i, T) (combine li lT) -> (exists T', In (i, T') (combine li' lT') /\ subtype T' T).
-
+      forall i T, In (i, T) (combine li lT) ->
+        (exists T', In (i, T') (combine li' lT') /\ subtype T' T).
 Proof with auto.
   intros li lT S Hlen Huniq Hsub.
   remember Hsub.
   clear Heqs.
-  apply consistent_subtypes_record_ex in s...
+  apply consistent_subtypes_record_ex in s... (* this is half of this lemma, after all *)
   inversion s as [li' s']. inversion s' as [lT' s''].
   inversion s''. inversion H0. subst. clear s s' s'' H0.
   exists li'. exists lT'.
@@ -280,7 +262,8 @@ Proof with auto.
     inversion H. inversion H0. clear H. clear H0.
     apply IHHsub1 with (lT'0 := lT') (li'0 := li') (li := x) (lT := x0) in H3...
     inversion H3. inversion H. clear H. clear H3.
-    exists x2. split... apply Sub_trans with (b := x1)...
+    exists x2. split...
+    apply Sub_trans with (b := x1)...
   Case "Sub_r_width".
     inversion Heqleft_rec; subst. clear Heqleft_rec.
     inversion Heqright_rec; subst. clear Heqright_rec.
@@ -291,15 +274,16 @@ Proof with auto.
     inversion Heqleft_rec. inversion Heqright_rec.
     clear Heqleft_rec. clear Heqright_rec. subst. subst.
     clear H1 H3. clear H H5 H0. generalize dependent li0.
-    induction H2; intros; destruct li0; try solve by inversion. simpl in *.
+    induction H2; intros; destruct li0; try solve by inversion.
+      simpl in *.
       remember (beq_id i i0). destruct b. apply beq_id_eq in Heqb. subst.
       inversion H6. inversion H0. subst. clear H0 H6.
       exists x...
       apply in_combine_l in H0. inversion Huniq. contradiction.
       symmetry in Heqb.
       apply beq_id_false_not_eq in Heqb.
-      inversion H6.
-      inversion H0. symmetry in H3. contradiction.
+      inversion H6. inversion H0.
+      symmetry in H3. contradiction.
       inversion Hlen. inversion Huniq. apply IHForall2 in H3... subst.
       inversion H3. inversion H1. clear H1 H3. exists x0. split...
   Case "Sub_r_perm".
@@ -308,4 +292,3 @@ Proof with auto.
     exists T. split...
     apply permutation_in with (i, T) (combine li'0 lT') (combine li0 lT) in H...
 Qed.
-

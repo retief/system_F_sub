@@ -4,7 +4,8 @@ Require Import STLC_types.
 Require Import STLC_terms.
 
 Reserved Notation "t1 '==>' t2" (at level 40).
-(* Note: Induction should be fine here *)
+(* Note: Induction should be fine here. No descent into the list of a literal
+   is required. *)
 Inductive step : term -> term -> Prop :=
 | ST_AppLambda : forall x T t12 v2,
                    value v2 -> (TApp (TLambda x T t12) v2) ==> [x := v2]t12

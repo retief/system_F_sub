@@ -2,6 +2,18 @@ Require Import SfLib.
 Require Import Coq.Logic.ClassicalFacts.
 Require Import Permutation.
 
+
+
+Lemma length_0_nil : forall {A : Type} (la : list A),
+  length la = 0 <-> la = [].
+Proof with auto.
+  split; intros; subst...
+  Case "->".
+    induction la... inversion H.
+Qed.
+
+
+(* uniqueness property on lists - used for record types *)
 Inductive Uniq {t : Type} : list t -> Prop :=
 | Uniq_nil : Uniq []
 | Uniq_cons : forall x xs, not (In x xs) -> Uniq xs -> Uniq (x :: xs).
@@ -14,6 +26,29 @@ Proof with auto.
     constructor... intro. contradict H2. apply in_or_app. left...
 Qed.
 
+Lemma in_combine_uniq {A B} :
+  forall (la : list A) (lb : list B) a b b',
+    In (a,b) (combine la lb) ->
+    In (a,b') (combine la lb) ->
+    Uniq la -> length la = length lb ->
+    b = b'.
+Proof with auto.
+  intros. generalize dependent lb.
+  induction la; intros; destruct lb; try solve by inversion.
+  Case "cons".
+    simpl in *. inversion H.
+    SCase "a0=a".
+      inversion H3. subst. inversion H0. inversion H4...
+      apply in_combine_l in H4. inversion H1. contradiction.
+    SCase "In (a,b) (combine la lb)".
+      apply IHla with (lb := lb)...
+      inversion H1...
+      inversion H0... inversion H4. subst. apply in_combine_l in H3.
+      inversion H1. contradiction.
+Qed.
+
+
+(* various [combine] lemmas - these are used for proofs about record types *)
 Lemma combine_eq {A B : Type} : forall (a c : list A) (b d : list B),
                      combine a b = combine c d ->
                      length a = length b ->
@@ -91,56 +126,33 @@ Proof with eauto.
     destruct a; destruct b; destruct c; destruct d; try solve by inversion...
   Case "skip".
     destruct a; destruct b; destruct c; destruct d; try solve by inversion...
-    simpl in *. inversion Heql0. inversion Heql. subst. inversion H5. subst.
+    simpl in *.
+    inversion Heql0. inversion Heql. subst. 
+    inversion H5. subst.
     inversion H0. apply IHPermutation with (d0 := d) (c0 := c) (b := b0) (a := a0) in H3...
-    inversion H3...
+    inversion H3... (* immediate from [permutation_cons] *)
   Case "swap".
     destruct a; destruct b; destruct c; destruct d; try solve by inversion.
     destruct a0; destruct b0; destruct c; destruct d; try solve by inversion.
-    simpl in *. inversion Heql. inversion Heql0. subst. inversion H6. inversion H5. subst.
-    inversion H0. inversion H. apply combine_eq in H7... inversion H7. rewrite H1.
+    simpl in *.
+    inversion Heql. inversion Heql0. subst.
+    inversion H6. inversion H5. subst.
+    inversion H0. inversion H. apply combine_eq in H7...
+    inversion H7. rewrite H1.
     rewrite H4. split; constructor.
   Case "trans".
-    subst. assert (exists a b, combine a b = l' /\ length a = length b). apply combine_pairs.
-    inversion H1. inversion H2. inversion H3. clear H1. clear H2. clear H3. subst.
+    subst.
+    assert (exists a b, combine a b = l' /\ length a = length b).
+      apply combine_pairs.
+    inversion H1. inversion H2. inversion H3. clear H1 H2 H3. subst.
     remember H5. clear Heqe.
     apply IHPermutation1 with (d := x0) (c := x) (b0 := b) (a0 := a) in H5...
     apply IHPermutation2 with (d0 := d) (c0 := c) (a := x) (b := x0) in H0...
-    inversion H0. inversion H5. split; eapply perm_trans...
-Qed.
-
-Definition partial_map (A : Type) := id -> option A.
-
-Definition empty {A : Type} : partial_map A := (fun _ => None).
-
-Definition extend {A : Type} (G : partial_map A) (x : id) (T : A) :=
-  fun x' => if beq_id x x' then Some T else G x'.
-
-Lemma extend_eq : forall A (ctxt: partial_map A) x T,
-  (extend ctxt x T) x = Some T.
-Proof.
-  intros; unfold extend.
-  rewrite <- beq_id_refl.
-  reflexivity.
-Qed.
-
-Lemma extend_neq : forall A (ctxt: partial_map A) x1 T x2,
-  beq_id x2 x1 = false ->
-  (extend ctxt x2 T) x1 = ctxt x1.
-Proof.
-  intros.
-  unfold extend. rewrite -> H.
-  reflexivity.
+    inversion H0. inversion H5.
+    split; eapply perm_trans...
 Qed.
 
 
-Lemma length_0_nil : forall {A : Type} (la : list A),
-  length la = 0 <-> la = [].
-Proof with auto.
-  split; intros; subst...
-  Case "->".
-    induction la... inversion H.
-Qed.
 
 Lemma combine_map {A} {B} {C} : forall (f : B -> C) (l1 : list A) (l2 : list B),
                                   combine l1 (map f l2) = map (fun p =>
@@ -158,15 +170,19 @@ Lemma combine_3 {A B C} : forall (x : A) (y : B) (z : C) xs ys zs,
                     In (y,z) (combine ys zs).
 Proof with auto.
   induction xs.
-  Case "base". simpl in *. intros. inversion H.
-  Case "inductive". intros. destruct ys; try solve by inversion.
-    destruct zs; try solve by inversion. simpl in *.
+  Case "base []".
+    simpl in *. intros. inversion H.
+  Case "inductive".
+    intros.
+    destruct ys; try solve by inversion.
+    destruct zs; try solve by inversion.
+    simpl in *.
     inversion H; inversion H0; try solve by inversion.
     inversion H2; inversion H3; subst.
     left...
     inversion H2; subst. inversion H1. subst.
     contradict H6. apply (in_combine_l xs zs x z)...
-    inversion H3; subst. inversion H1. subst.
+    inversion H3; subst. inversion H1; subst.
     contradict H6. apply (in_combine_l xs ys x y)...
     right. inversion H1. apply IHxs...
 Qed.

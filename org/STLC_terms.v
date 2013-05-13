@@ -2,6 +2,7 @@ Require Import SfLib.
 Require Import util.
 Require Import STLC_types.
 
+(* term definition *)
 Unset Elimination Schemes.
 Inductive term : Type :=
 | TVar : id -> term
@@ -16,7 +17,9 @@ Inductive term : Type :=
 | TLiteral : list id -> list term -> term
 | TAccess : term -> id -> term.
 Set Elimination Schemes.
-(* TODO: Fix inductive hypotheses for f8 (TLiteral's induction) *)
+
+(* as with types, the default induction hypothesis is broken here;
+   this definition is thus necessary *)
 Definition term_ind := fun (P : term -> Prop) (f : forall i : id, P (TVar i))
   (f0 : forall t : term, P t -> forall t0 : term, P t0 -> P (TApp t t0))
   (f1 : forall (i : id) (t : type) (t0 : term), P t0 -> P (TLambda i t t0))
@@ -65,24 +68,7 @@ Tactic Notation "term_cases" tactic(first) ident(c) :=
 Hint Constructors term.
 
 
-(*
-Fixpoint typeof (t : term) (G : context) : option type :=
-  match t with
-  | TTrue -> Some TBool
-  | TFalse -> Some TBool
-  | TNum n -> Some TNat
-  | TVar x -> (G x)
-  | TLambda x xT b -> TArrow xT (typeof b G)
-  | TApp app arg -> (match (typeof app G) with
-                    | Some (TArrow arg' ret) -> (match (typeof arg G) with
-                                                | Some T -> if is_subtype T arg' then ret else None
-                                                | _ -> None
-                                                end)
-                    | _ -> None
-                    end)
-  | TIf cond t e -> 
-*)
-
+(* value definition *)
 Unset Elimination Schemes.
 Inductive value : term -> Prop :=
 | v_abs : forall x T t, value (TLambda x T t)
@@ -93,7 +79,8 @@ Inductive value : term -> Prop :=
 Set Elimination Schemes.
 
 
-
+(* again, the default induction hypothesis is insufficient.
+   This occurs essentially wherever Record types or literal terms appear *)
 Definition value_ind := fun (P : term -> Prop)
   (f : forall (x : id) (T : type) (t : term), P (TLambda x T t)) 
   (f0 : P TTrue)
@@ -122,6 +109,7 @@ Tactic Notation "value_cases" tactic(first) ident(c) :=
 
 Hint Constructors value.
 
+(* substitution semantics for evaluation *)
 Fixpoint subst (x : id) (s : term) (t : term) : term :=
   match t with
     | TVar x' =>
@@ -142,6 +130,8 @@ Fixpoint subst (x : id) (s : term) (t : term) : term :=
 
 Notation "'[' x ':=' s ']' t" := (subst x s t) (at level 20).
 
+
+(* definitions and lemmas for/about looking up terms in literals *)
 Fixpoint lookup' (i : id) (l : list (id * term)) : option term :=
   match l with
     | nil => None

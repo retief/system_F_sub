@@ -7,94 +7,6 @@ Require Import STLC_terms.
 Require Import STLC_has_type.
 Require Import STLC_step.
 
-Lemma has_type_record_lemma :
-  forall G li lv li' lt,
-    has_type G (TLiteral li lv) (TRecord li' lt) ->
-    length li = length lv /\ length li' = length lt /\ Uniq li /\ Uniq li'.
-Proof with eauto.
-  intros.
-  remember (TLiteral li lv). remember (TRecord li' lt).
-  generalize dependent li'. generalize dependent lt.
-  has_type_cases (induction H) Case; intros; inversion Heqt; inversion Heqt0; subst.
-  Case "T_Literal". inversion Heqt0. subst...
-  Case "T_Subtype". remember H. clear Heqs. apply consistent_subtypes_record in s.
-    inversion s. inversion H3. clear s H3. subst. 
-    apply IHhas_type with (lt := x0) (li' := x) in H1...
-    inversion H1. clear H1. inversion H3. inversion H4. clear H4.
-    clear H3. clear IHhas_type.
-    remember (TRecord li' lt). remember (TRecord x x0). generalize dependent li'.
-    generalize dependent lt. generalize dependent x. generalize x0.
-    subtype_cases (induction H) SCase; intros; inversion Heqt; inversion Heqt0; subst...
-      SCase "Sub_refl". inversion H. subst...
-      SCase "Sub_trans". remember H1. clear Heqs.
-        apply consistent_subtypes_record in s. inversion s. inversion H8. subst.
-        clear s. clear H8.
-        remember H0. clear Heqh.
-        apply IHsubtype1 with (x0 := x1) (x4 := x) (lt := x3) (li' := x2) in h...
-        inversion h. inversion H9. inversion H11. clear h. clear H9. clear H11.
-        apply T_Subtype with (T' := TRecord x2 x3) in H0...
-      SCase "Sub_r_width". split... split... split... inversion H7...
-      SCase "Sub_r_depth". subst...
-      SCase "Sub_r_perm". split... split... split... 
-        inversion H8...
-Qed.
-        
-Lemma literal_info :
-  forall G li lv li' lt,
-    has_type G (TLiteral li lv) (TRecord li' lt) ->
-    (forall i T, In (i,T) (combine li' lt) -> exists t, In (i,t) (combine li lv) /\
-                                                        has_type G t T) /\
-    Uniq li /\ Uniq li' /\
-    length li = length lv /\
-    length li' = length lt.
-Proof with eauto.
-  intros.
-  remember H. clear Heqh.
-  apply has_type_record_lemma in h. inversion h. inversion H1. inversion H3.
-  split... clear H3. clear H1. clear h. intros.
-  remember (TLiteral li lv).
-  remember (TRecord li' lt). generalize dependent lt. generalize dependent li'.
-  generalize dependent T.
-  has_type_cases (induction H) Case; intros; inversion Heqt; inversion Heqt0; subst...
-  Case "T_Literal". inversion Heqt0. subst. clear H10. clear Heqt. clear H3.
-    clear H. clear Heqt0. clear H7. clear H4. clear H6. remember H8. clear Heqi0.
-    apply in_combine_r in i0. remember H8. clear Heqi1. apply in_combine_l in i1.
-    rewrite H1 in H0. generalize dependent lv. generalize dependent li'.
-    induction lt0; intros; try solve by inversion;
-    destruct lv; destruct li'; try solve by inversion.
-    inversion H8. subst. inversion H5. subst. inversion H. subst. exists t. split...
-    unfold In. simpl...
-    simpl in *. assert (i <> i2).
-    SCase "Proof of assertion". intro. subst. apply in_combine_l in H. inversion H2.
-      contradiction.
-    unfold not in H3.
-    assert (In (i,T) (combine li' lt0)). inversion H8...
-    clear H8.
-    apply IHlt0 with (lv := lv) in H4...
-    inversion H4. exists x. inversion H6. split...
-    apply in_combine_r in H4...
-    inversion H2...
-    apply in_combine_l in H4...
-    inversion H5...
-  Case "T_Subtype".
-    remember H.
-    clear Heqs.
-    remember s.
-    clear Heqs0.
-    apply consistent_subtypes_record in s0.
-    inversion s0. inversion H8. clear s0. clear H8. subst.
-    apply has_type_record_lemma in H1.
-    inversion H1. inversion H9. inversion H11.
-    clear H1. clear H9. clear H11.
-    apply record_subtype_inversion in s...
-    inversion s. inversion H1. inversion H9.
-    clear s. clear H1. clear H9.
-    apply H14 in H3. inversion H3. inversion H1.
-    clear H3. clear H1.
-    inversion H11. subst.
-    apply IHhas_type with (li' := x1) (lt := x2) (T := x3) in H9...
-    inversion H9. exists x. inversion H1. split...
-Qed.    
 
 Theorem progress : forall t T, 
      has_type empty t T ->
@@ -164,8 +76,9 @@ Proof with eauto.
     destruct IHHt...
     SCase "TLiteral is a value". right. eapply literal_info in Ht...
       inversion Ht. apply in_lookup in H... inversion H3...
-    SCase "TLiteral setps". right. inversion H1. exists (TAccess x i)...
+    SCase "TLiteral steps". right. inversion H1. exists (TAccess x i)...
 Qed.
+
 
 Inductive appears_free_in : id -> term -> Prop :=
 | AFI_Var : forall x,
@@ -307,38 +220,38 @@ Proof with eauto.
   | remember (TEqNat t1 t2) as rem
   | remember (TLiteral li lv) as rem
   | remember (TAccess t i) as rem];
-  induction H'; inversion Heqrem; subst...
-
-  Case "TVar".
+  has_type_cases (induction H') SCase; inversion Heqrem; subst...
+  Case "TVar". SCase "T_Var".
     remember (beq_id x y) as e. destruct e.
-      SCase "x=y". apply beq_id_eq in Heqe. subst. rewrite extend_eq in H.
+      SSCase "x=y". apply beq_id_eq in Heqe. subst. rewrite extend_eq in H.
         inversion H. subst. eapply context_invariance... intros x Hcontra.
         destruct (free_in_context _ _ T empty Hcontra)... inversion H0.
-      SCase "x<>y". constructor. rewrite extend_neq in H...
-  Case "TLambda".
+      SSCase "x<>y". constructor. rewrite extend_neq in H...
+  Case "TLambda". SCase "T_Lambda".
     apply T_Lambda. remember (beq_id x y) as e. destruct e.
-    SCase "x=y".
+    SSCase "x=y".
       eapply context_invariance...
       apply beq_id_eq in Heqe; subst.
       intros x Hafi. unfold SfLib.extend. unfold extend.
       remember (beq_id y x) as e. destruct e...
-    SCase "x<>y".
+    SSCase "x<>y".
       apply IHt. eapply context_invariance...
       intros z Hafi. unfold extend. unfold SfLib.extend.
       remember (beq_id y z) as e0. destruct e0...
       apply beq_id_eq in Heqe0. subst.
       rewrite <- Heqe...
-  Case "TLiteral".
+  Case "TLiteral". SCase "T_Literal".
     apply T_Literal...
     apply weird_forall_forall2 with (l' := lt) (g := gamma) in H...
     rewrite map_length...
-  Case "TAccess".
+  Case "TAccess". SCase "T_Access".
     eapply T_Access with (v := subst x t' v)...
     inversion H'; subst; rewrite combine_map; apply in_map_iff; exists (i,v)...
 Qed.
 
 
-
+(* now that context invariance is proven, we can determine the type of
+   the body of a lambda in the empty context *)
 Lemma lambda_body_type :
   forall x T t12 T12 T11,
     has_type empty (TLambda x T t12) (TArrow T11 T12) ->
@@ -351,126 +264,83 @@ Proof with eauto.
   generalize dependent T11.
   generalize dependent T12.
   generalize dependent t12.
-  has_type_cases (induction H) Case; try solve [intros;
-                                                 inversion Heqt;
-                                                 inversion Heqt0;
-                                                 subst; subst; auto].
-  intros.
-  remember H.
-  clear Heqs.
-  inversion Heqt.
-  inversion Heqt0.
-  subst.
-  clear H2.
-  clear H1.
-  apply consistent_subtypes_lambda in H.
-  inversion H as [T21]. inversion H1 as [T22]. inversion H2. inversion H4. subst.
-  clear H. clear H1. clear H2. clear H4.
-  apply T_Subtype with (T := T22)...
-  assert ((TLambda x T t12) = (TLambda x T t12))...
-  apply IHhas_type with (T12 := T22) (T11 := T21) in H...
-  clear IHhas_type. clear s. clear H6. clear H0.
-  remember (extend empty x T11) as sub.
-  remember (extend empty x T21) as sup.
-  assert (forall i, not (i = x) -> sup i = sub i).
-    SCase "Proof of assertion". intros. subst. unfold extend.
-      remember (beq_id x i). destruct b... contradict H0. apply beq_id_eq in Heqb...
-  assert (sub x = Some T11). subst. unfold extend. rewrite <- beq_id_refl...
-  assert (sup x = Some T21). subst. unfold extend. rewrite <- beq_id_refl...
-  clear Heqsup.
-  clear Heqsub.
-  generalize dependent sup.
-  generalize dependent sub.
-  generalize dependent T22.
-  term_cases (induction t12) SCase; intros...
-  SCase "TVar".
-    remember (TVar i).
-    has_type_cases (induction H) SSCase; try solve by inversion...
-      SSCase "T_Var". inversion Heqt. subst.
-        remember (beq_id i x). destruct b.
-        SSSCase "i=x". apply (beq_id_eq i x) in Heqb. subst.
-          rewrite H in H2... inversion H2. subst.
-          apply T_Subtype with (T := T11)...
-        SSSCase "i!=x". symmetry in Heqb. apply beq_id_false_not_eq in Heqb.
-          apply H0 in Heqb. constructor. rewrite <- Heqb...
-  SCase "TApp".
-    remember (TApp t12_1 t12_2).
-    has_type_cases (induction H) SSCase; inversion Heqt; subst...
-  SCase "TLambda".
-    remember (beq_id i x). destruct b.
-    SSCase "i=x". apply beq_id_eq in Heqb.
-      remember (TLambda i t t12).
-      has_type_cases (induction H) SSSCase; inversion Heqt0; subst...
-        SSSCase "T_Lambda". clear Heqt0. clear IHhas_type.
-          apply T_Lambda. apply context_invariance with (gamma := (SfLib.extend G x t))...
-          intros. unfold SfLib.extend. remember (beq_id x x0).
+  has_type_cases (induction H) Case;
+    try solve [intros; inversion Heqt; inversion Heqt0; subst; subst; auto].
+  Case "T_Subtype".
+    intros. remember H. clear Heqs.
+    inversion Heqt. inversion Heqt0. subst. clear H2 H1.
+    apply consistent_subtypes_lambda in H.
+    inversion H as [T21]. inversion H1 as [T22]. inversion H2. inversion H4. subst.
+    clear H H1 H2 H4.
+    apply T_Subtype with (T := T22)...
+    assert ((TLambda x T t12) = (TLambda x T t12))...
+    apply IHhas_type with (T12 := T22) (T11 := T21) in H...
+    clear IHhas_type s H6 H0.
+    remember (extend empty x T11) as sub.
+    remember (extend empty x T21) as sup. (* super types! *)
+    assert (forall i, not (i = x) -> sup i = sub i).
+      intros. subst. unfold extend.
+        remember (beq_id x i). destruct b... contradict H0. apply beq_id_eq in Heqb...
+    assert (sub x = Some T11). subst. unfold extend. rewrite <- beq_id_refl...
+    assert (sup x = Some T21). subst. unfold extend. rewrite <- beq_id_refl...
+    clear Heqsup Heqsub.
+    generalize dependent sup.
+    generalize dependent sub.
+    generalize dependent T22.
+    term_cases (induction t12) SCase; intros T22 sub H1 sup H_has_type_sup H0 H2;
+        [ remember (TVar i)
+        | remember (TApp t12_1 t12_2)
+        | remember (TLambda i t t12)
+        | remember TTrue
+        | remember TFalse
+        | remember (TIf t12_1 t12_2 t12_3)
+        | remember (TNum n)
+        | remember (TPlus t12_1 t12_2)
+        | remember (TEqNat t12_1 t12_2)
+        | remember (TLiteral li lv)
+        | remember (TAccess t12 i) ]; intros; try (has_type_cases (induction H_has_type_sup) SSCase;
+                                        inversion Heqt; subst;
+                                        try solve by inversion)...
+      SCase "TVar".
+        SSCase "T_Var".
+          remember (beq_id i x). destruct b.
+          SSSCase "i=x". apply (beq_id_eq i x) in Heqb. subst.
+            rewrite H in H2... inversion H2. subst.
+            apply T_Subtype with (T := T11)...
+          SSSCase "i!=x". symmetry in Heqb. apply beq_id_false_not_eq in Heqb.
+            apply H0 in Heqb. constructor. rewrite <- Heqb...
+    SCase "TLambda".
+      remember (beq_id i x). destruct b.
+      SSCase "i = x".
+        apply beq_id_eq in Heqb.
+        has_type_cases (induction H_has_type_sup) SSSCase; inversion Heqt0; subst...
+          SSSCase "T_Lambda". clear Heqt0. clear IHH_has_type_sup.
+            apply T_Lambda. apply context_invariance with (gamma := (SfLib.extend G x t))...
+            intros. unfold SfLib.extend. remember (beq_id x x0).
+            destruct b...
+            SSSSCase "x<>x0". symmetry in Heqb. apply beq_id_false_not_eq in Heqb.
+              assert (x0 <> x)...
+      SSCase "i<>x".
+        has_type_cases (induction H_has_type_sup) SSSCase; inversion Heqt0; subst...
+        SSSCase "T_Lambda".
+          clear IHH_has_type_sup.
+          constructor. apply IHt12 with (sup := extend G i t)...
+          unfold extend. rewrite <- Heqb...
+          intros. unfold extend. apply H0 in H. remember (beq_id i i0).
           destruct b...
-          SSSSCase "x<>x0". symmetry in Heqb. apply beq_id_false_not_eq in Heqb.
-            assert (x0 <> x)...
-    SSCase "i<>x". 
-      remember (TLambda i t t12).
-      has_type_cases (induction H) SSSCase; inversion Heqt0; subst...
-      SSSCase "T_Lambda".
-        clear IHhas_type. constructor. apply IHt12 with (sup := SfLib.extend G i t)...
-        unfold SfLib.extend. rewrite <- Heqb...
-        intros. unfold SfLib.extend. apply H0 in H3. remember (beq_id i i0).
-        destruct b...
-        unfold SfLib.extend. rewrite <- Heqb...
-  SCase "TTrue".
-    remember TTrue.
-    induction H; inversion Heqt; subst...
-  SCase "TFalse".
-    remember TFalse.
-    induction H; inversion Heqt; subst...
-  SCase "TIf".
-    remember (TIf t12_1 t12_2 t12_3).
-    induction H; inversion Heqt; subst...
-  SCase "TNum".
-    remember (TNum n).
-    induction H; inversion Heqt; subst...
-  SCase "TPlus".
-    remember (TPlus t12_1 t12_2).
-    induction H; inversion Heqt; subst...
-  SCase "TEqNat".
-    remember (TEqNat t12_1 t12_2).
-    induction H; inversion Heqt; subst...
-  SCase "TLiteral".
-    remember (TLiteral li lv).
-    has_type_cases (induction H0) SSCase; inversion Heqt; subst...
-    SSCase "T_Literal". clear H7. constructor...
-      generalize dependent lt. generalize dependent li.
-      induction H; intros.
-        SSSCase "Forall_nil". destruct lt; try solve by inversion...
-        SSSCase "Forall_cons". destruct lt; try solve by inversion...
-          destruct li; try solve by inversion...
-          constructor. inversion H8...
-          apply IHForall with (li := li)...
-          inversion H6... inversion H8...
-  SCase "TAccess".
-    remember (TAccess t12 i).
-    induction H; inversion Heqt; subst...
+          unfold extend. rewrite <- Heqb...SCase "TLiteral".
+      SSCase "T_Literal". clear H7. constructor...
+        generalize dependent lt. generalize dependent li.
+        induction H; intros.
+          SSSCase "Forall_nil". destruct lt; try solve by inversion...
+          SSSCase "Forall_cons". destruct lt; try solve by inversion...
+            destruct li; try solve by inversion...
+            constructor. inversion H8...
+            apply IHForall with (li := li)...
+            inversion H6... inversion H8...
 Qed.
 
-Lemma in_combine_uniq {A B} :
-  forall (la : list A) (lb : list B) a b b',
-    In (a,b) (combine la lb) ->
-    In (a,b') (combine la lb) ->
-    Uniq la -> length la = length lb ->
-    b = b'.
-Proof with auto.
-  intros. generalize dependent lb.
-  induction la; intros; destruct lb; try solve by inversion.
-  Case "cons".
-    simpl in *. inversion H.
-    SCase "a0=a".
-      inversion H3. subst. inversion H0. inversion H4...
-      apply in_combine_l in H4. inversion H1. contradiction.
-    SCase "In (a,b) (combine la lb)".
-      apply IHla with (lb := lb)...
-      inversion H1...
-      inversion H0... inversion H4. subst. apply in_combine_l in H3.
-      inversion H1. contradiction.
-Qed.
+
     
 Theorem preservation : forall t t' T,
                          has_type empty t T ->

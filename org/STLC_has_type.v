@@ -6,6 +6,7 @@ Require Import STLC_types.
 
 Definition context := partial_map type.
 
+
 Unset Elimination Schemes.
 Inductive has_type : context -> term -> type -> Prop :=
 | T_Var : forall G x T,
@@ -130,6 +131,9 @@ Tactic Notation "has_type_cases" tactic(first) ident(c) :=
   | Case_aux c "T_Access" | Case_aux c "T_Subtype" ].
 
 
+(* various canonical form lemmas - for some types, if a term has that type,
+   it must be a particular kind of term *)
+
 Lemma canonical_forms_bool :
   forall (G : context) (t : term),
     has_type G t TBool -> value t -> t = TTrue \/ t = TFalse.
@@ -140,15 +144,6 @@ Proof with auto.
   Case "T_Subtype".
     apply IHhas_type in H0... subst.
     apply no_subtypes_bool in H; exact H.
-Qed.
-
-Lemma canonical_forms_bool' :
-  forall G t T,
-    has_type G t T -> T = TBool -> value t -> t = TTrue \/ t = TFalse.
-Proof with auto.
-  intros.
-  has_type_cases (induction H) Case; try solve by inversion...
-  Case "T_Subtype". apply no_subtypes_bool' in H...
 Qed.
 
 
@@ -163,17 +158,6 @@ Proof with auto.
     apply IHhas_type in H0... subst.
     apply no_subtypes_nat in H...
 Qed.
-
-Lemma canonical_forms_nat' :
-  forall G t T,
-    has_type G t T -> T = TNat -> value t -> exists n, t = TNum n.
-Proof with auto.
-  intros.
-  has_type_cases (induction H) Case; try solve by inversion...
-  Case "T_Nat". exists n...
-  Case "T_Subtype". apply no_subtypes_nat' in H...
-Qed.
-
 
 
 Lemma canonical_forms_lambda :
@@ -194,28 +178,98 @@ Proof with auto.
 Qed.
 
 
-Lemma canonical_forms_lambda' :
-  forall G t T A R,
-    has_type G t T -> T = (TArrow A R) -> value t -> exists i ty te, t = TLambda i ty te.
-Proof with auto.
-  intros. generalize dependent A. generalize dependent R.
-  has_type_cases (induction H) Case; intros; try solve by inversion.
-  Case "T_Lambda". exists x. exists T11. exists t12...
-  Case "T_Subtype". apply consistent_subtypes_lambda' with (A := A) (R := R) in H...
-    inversion H. inversion H3. apply IHhas_type with (R := x0) (A := x)...
+
+(* if a literal has a record type, there are several inferences we can make about it *)
+Lemma has_type_literal_info :
+  forall G li lv li' lt,
+    has_type G (TLiteral li lv) (TRecord li' lt) ->
+    length li = length lv /\ length li' = length lt /\ Uniq li /\ Uniq li'.
+Proof with eauto.
+  intros.
+  remember (TLiteral li lv). remember (TRecord li' lt).
+  generalize dependent li'. generalize dependent lt.
+  has_type_cases (induction H) Case; intros; inversion Heqt; inversion Heqt0; subst.
+  Case "T_Literal". inversion Heqt0. subst...
+  Case "T_Subtype". remember H. clear Heqs. apply consistent_subtypes_record in s.
+    inversion s. inversion H3. clear s H3. subst. 
+    apply IHhas_type with (lt := x0) (li' := x) in H1...
+    inversion H1. clear H1.
+    inversion H3. inversion H4. clear H4.
+    clear H3. clear IHhas_type.
+    remember (TRecord li' lt). remember (TRecord x x0). generalize dependent li'.
+    generalize dependent lt. generalize dependent x. generalize x0.
+    subtype_cases (induction H) SCase; intros; inversion Heqt; inversion Heqt0; subst...
+      SCase "Sub_refl". inversion H. subst...
+      SCase "Sub_trans". remember H1. clear Heqs.
+        apply consistent_subtypes_record in s. inversion s. inversion H8. subst.
+        clear s. clear H8.
+        remember H0. clear Heqh.
+        apply IHsubtype1 with (x0 := x1) (x4 := x) (lt := x3) (li' := x2) in h...
+        inversion h. inversion H9. inversion H11. clear h. clear H9. clear H11.
+        apply T_Subtype with (T' := TRecord x2 x3) in H0...
+      SCase "Sub_r_width". split... split... split... inversion H7...
+      SCase "Sub_r_depth". subst...
+      SCase "Sub_r_perm". split... split... split... 
+        inversion H8...
 Qed.
 
-(*
-Lemma record_type_info1 :
-  forall (G : context) (li : list id) (lt : list term) (T : type),
-    has_type G (TLiteral li lt) T ->
-    exists (lT : list type),
-      Forall2 (fun x xT => has_type G x xT) lt lT /\ T = (TRecord li lT).
-Proof.
+(* this is a stronger form of the above lemma, which is used in the proof of this one *)
+Lemma literal_info :
+  forall G li lv li' lt,
+    has_type G (TLiteral li lv) (TRecord li' lt) ->
+    (forall i T, In (i,T) (combine li' lt) -> exists t, In (i,t) (combine li lv) /\
+                                                        has_type G t T) /\
+    Uniq li /\ Uniq li' /\
+    length li = length lv /\
+    length li' = length lt.
+Proof with eauto.
   intros.
-  
-  remember (TLiteral li lt) as rem. induction H; inversion Heqrem; subst...
-  *)
+  remember H. clear Heqh.
+  apply has_type_literal_info in h. inversion h. inversion H1. inversion H3.
+  split... clear H3. clear H1. clear h. intros.
+  remember (TLiteral li lv).
+  remember (TRecord li' lt). generalize dependent lt. generalize dependent li'.
+  generalize dependent T.
+  has_type_cases (induction H) Case; intros; inversion Heqt; inversion Heqt0; subst...
+  Case "T_Literal". inversion Heqt0. subst. clear H10. clear Heqt. clear H3.
+    clear H. clear Heqt0. clear H7. clear H4. clear H6. remember H8. clear Heqi0.
+    apply in_combine_r in i0. remember H8. clear Heqi1. apply in_combine_l in i1.
+    rewrite H1 in H0. generalize dependent lv. generalize dependent li'.
+    induction lt0; intros; try solve by inversion;
+    destruct lv; destruct li'; try solve by inversion.
+    inversion H8. subst. inversion H5. subst. inversion H. subst. exists t. split...
+    unfold In. simpl...
+    simpl in *. assert (i <> i2).
+    SCase "Proof of assertion". intro. subst. apply in_combine_l in H. inversion H2.
+      contradiction.
+    unfold not in H3.
+    assert (In (i,T) (combine li' lt0)). inversion H8...
+    clear H8.
+    apply IHlt0 with (lv := lv) in H4...
+    inversion H4. exists x. inversion H6. split...
+    apply in_combine_r in H4...
+    inversion H2...
+    apply in_combine_l in H4...
+    inversion H5...
+  Case "T_Subtype".
+    remember H.
+    clear Heqs.
+    remember s.
+    clear Heqs0.
+    apply consistent_subtypes_record in s0.
+    inversion s0. inversion H8. clear s0. clear H8. subst.
+    apply has_type_literal_info in H1.
+    inversion H1. inversion H9. inversion H11.
+    clear H1. clear H9. clear H11.
+    apply record_subtype_inversion in s...
+    inversion s. inversion H1. inversion H9.
+    clear s. clear H1. clear H9.
+    apply H14 in H3. inversion H3. inversion H1.
+    clear H3. clear H1.
+    inversion H11. subst.
+    apply IHhas_type with (li' := x1) (lt := x2) (T := x3) in H9...
+    inversion H9. exists x. inversion H1. split...
+Qed.
 
 
 (* needs to be extended, we will need something about the types of the stuff in the literal.
