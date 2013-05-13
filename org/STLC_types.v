@@ -252,98 +252,53 @@ split...
 remember (TRecord li' lT') as left_rec;
 remember (TRecord li lT) as right_rec.
 
+
 generalize dependent li.
 generalize dependent lT.
 generalize dependent li'.
 generalize dependent lT'.
-subtype_cases (induction Hsub) Case;
-  try solve [intros; inversion Heqleft_rec; inversion Heqright_rec; subst]...
+subtype_cases (induction Hsub) Case; subst; intros; subst;
+  try solve by inversion...
 
 Case "Sub_refl".
-intros. subst. inversion Heqright_rec; subst.
-clear Heqright_rec.
+inversion Heqright_rec; subst. clear Heqright_rec.
 
-generalize dependent li.
-induction lT; intros; destruct li; try solve by inversion...
-SCase "i :: li, a :: lT".
-inversion Hlen. apply IHlT with li in H0.
-apply Forall2_cons. exists a; split; simpl...
+exists T; split...
 
-      replace ((fun (i0 : id) (T : type) =>
-                  exists T' : type,
-                    (In (i0, T') (combine (i :: li) (a :: lT))) /\ subtype T' T))
-        with  ((fun (i0 : id) (T : type) =>
-                  exists T' : type,
-                    (In (i0, T') (combine li lT)) /\ subtype T' T)).
-      exact H0.
-  (*    proof that the replacement is valid  *)
-      apply func_ext2. intros. apply prop_ext.
-      split; intros; simpl...
-        SSCase "left".
-          inversion H. inversion H1. exists x0...
-        SSCase "right".
-          inversion H. inversion H1.
-          assert (In (x, x0) (combine li lT)). admit.
-(* the only inputs to the functions are elements of [combine li lt] *)
-          exists x0. split...
-      inversion Huniq...
 
 Case "Sub_trans".
-intros. subst.
-apply IHHsub1...
-
-
-admit.
+  admit.
 
 
 Case "Sub_r_width".
-intros.
-inversion Heqleft_rec; subst.
-inversion Heqright_rec; subst.
-clear Heqright_rec Heqleft_rec.
-remember (fun (i : id) (T : type) =>
-        exists T' : type, In (i, T') (combine (li0 ++ li') (lT ++ lt')) /\ subtype T' T).
-generalize dependent li0.
-induction lT; intros; destruct li0; try solve by inversion...
-subst.
-apply Forall2_cons. exists a; split... apply in_eq.
-apply IHlT... inversion Huniq...
-apply func_ext2; intros. apply prop_ext; split; intros.
-simpl in H1.
-
-
-
-admit.
-
+  inversion Heqleft_rec; subst. clear Heqleft_rec.
+  inversion Heqright_rec; subst. clear Heqright_rec.
+  exists T. split...
+  rewrite <- combine_app...
+  apply in_or_app. left...
 
 Case "Sub_r_depth".
 (*
-  destruct H1.
-    SCase "Forall2_nil".
-      inversion H; subst. simpl in *. apply length_0_nil in H. subst. inversion Heqright_rec; subst...
-    SCase "Forall2_cons".
-apply H1.
-
-  inversion Heqright_rec; subst.
-  inversion Heqleft_rec; subst.
-  clear Heqright_rec Heqleft_rec.
+  inversion Heqleft_rec; subst. clear Heqleft_rec.
+  inversion Heqright_rec; subst. clear Heqright_rec.
 *)
-admit.
+  induction H1.
+  SCase "Forall2_nil". admit.
+  SCase "Forall2_cons".
 
-Case "Sub_r_perm". intros.
-inversion Heqleft_rec; subst.
-inversion Heqright_rec; subst.
-clear Heqleft_rec Heqright_rec.
+apply IHForall2...
 
-generalize dependent li.
-induction lT; intros; destruct li; try solve by inversion...
-apply Forall2_cons.
-exists a.
-simpl in *.
-split...
-SearchAbout Permutation.
-Check Permutation_in.
-SearchAbout Permutation.
 
-apply Permutation_in with (i, a) (combine li' lT') (combine (i :: li in H.
+    destruct li; try solve by inversion.
+    
+    inversion Heqleft_rec; subst. clear Heqleft_rec.
+    inversion Heqright_rec; subst. clear Heqright_rec.
+    
+    
 
+Case "Sub_r_perm".
+  inversion Heqleft_rec; subst. clear Heqleft_rec.
+  inversion Heqright_rec; subst. clear Heqright_rec.
+  exists T. split...
+  apply permutation_in with (i, T) (combine li' lT') (combine li lT) in H...
+Admitted.
