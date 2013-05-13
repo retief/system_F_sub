@@ -69,7 +69,7 @@ Inductive subtype : type -> type -> Prop :=
   | Sub_r_width : forall li li' lt lt',
                     length li = length lt ->
                     length li' = length lt' ->
-                    Uniq li -> Uniq li' ->
+                    Uniq li -> Uniq (li ++ li') ->
                     subtype (TRecord (li++li') (lt++lt')) (TRecord li lt)
   | Sub_r_depth : forall li lt lt',
                     length li = length lt ->
@@ -100,7 +100,7 @@ Definition subtype_ind := fun (P : type -> type -> Prop)
                               (f_width : forall li li' lt lt',
                                            length li = length lt ->
                                            length li' = length lt' ->
-                                           Uniq li -> Uniq li' ->
+                                           Uniq li -> Uniq (li ++ li') ->
                                            P (TRecord (li ++ li') (lt++lt'))
                                              (TRecord li lt))
                               (f_depth : forall li lt lt',
@@ -217,19 +217,20 @@ Qed.
 
 Lemma consistent_subtypes_record :
   forall (T : type) (li : list id) (lt : list type), length li = length lt -> Uniq li ->
-    subtype T (TRecord li lt) -> (exists li' lt', T = TRecord li' lt' /\ length li' = length lt' /\ Uniq li').
+    subtype T (TRecord li lt) ->
+    (exists li' lt', T = TRecord li' lt' /\ length li' = length lt' /\ Uniq li').
 Proof with eauto.
   intros T li lt Hlen Huniq Hsub. remember (TRecord li lt) as TRec.
   generalize dependent li; generalize dependent lt.
   subtype_cases (induction Hsub) Case; intros; try solve by inversion...
   Case "Sub_trans".
     apply IHHsub2 in HeqTRec...
-    inversion HeqTRec. inversion H... inversion H0... inversion H2...
+    inversion HeqTRec. inversion H... inversion H0... inversion H2... subst.    
   Case "Sub_r_width".
     inversion HeqTRec; subst. clear HeqTRec.
     exists (li0 ++ li'). exists (lt0 ++ lt').
     split... split... repeat rewrite -> app_length. subst...
-Admitted.
+Qed.
 
 Lemma consistent_subtypes_record' :
   forall T T' li' lt',
