@@ -1,5 +1,5 @@
 Require Import SfLib.
-Require Import Coq.Logic.ClassicalFacts.
+Require Import List.
 Require Import Permutation.
 
 
@@ -10,6 +10,30 @@ Proof with auto.
   split; intros; subst...
   Case "->".
     induction la... inversion H.
+Qed.
+
+Lemma append_length : forall {A : Type} (l1 l1' l2 l2' : list A),
+  length l1 = length l1' -> length l2 = length l2' -> l1 ++ l2 = l1' ++ l2' -> 
+  l1 = l1' /\ l2 = l2'.
+Proof with auto.
+  intros.
+  generalize dependent l1'.
+  induction l1; intros; destruct l1'; try solve by inversion...
+  inversion H1; subst.
+  apply IHl1 in H4...
+  inversion H4; subst...
+Qed.
+
+Lemma Forall_app : forall {A : Type} (P : A -> Prop) (l1 l2 : list A),
+  Forall P (l1 ++ l2) -> Forall P l1 /\ Forall P l2.
+Proof with auto.
+  intros.
+  induction l1...
+  simpl in H.
+  inversion H; subst. remember H3; clear Heqf.
+  apply IHl1 in H3.
+  split; [apply Forall_cons | apply IHl1]...
+  apply H3.
 Qed.
 
 
@@ -45,6 +69,41 @@ Proof with auto.
       inversion H1...
       inversion H0... inversion H4. subst. apply in_combine_l in H3.
       inversion H1. contradiction.
+Qed.
+
+(* different form of uniqueness; this different definition means
+   list elements are unique according to some function if no two list
+   elements produce the same output by that function *)
+Inductive Uniq_f {A B : Type} : (A -> B) -> list A -> Prop :=
+| Uniq_f_nil : forall (f : A -> B), Uniq_f f []
+| Uniq_f_cons : forall (f : A -> B) (x : A) (xs : list A),
+                  not (In (f x) (map f xs)) -> Uniq_f f xs -> Uniq_f f (x :: xs).
+Hint Constructors Uniq_f.
+
+Lemma uniq_f_app {A B : Type} :
+  forall (f : A -> B) (l1 l2 : list A), Uniq_f f (l1 ++ l2) -> Uniq_f f l1 /\ Uniq_f f l2.
+Proof with auto.
+  induction l1; intros... inversion H; subst. apply IHl1 in H4. inversion H4. split...
+    constructor...
+  intro. contradict H3.
+  rewrite -> map_app.
+  apply in_or_app. left...
+Qed.
+
+Lemma uniq_f_iff_uniq_map {A B : Type} :
+  forall (f : A -> B) (l : list A), Uniq_f f l <-> Uniq (map f l).
+Proof with auto.
+  split; intros.
+  Case "->".
+    induction l.
+    SCase "[]".
+      simpl...
+    SCase "a :: l".
+      simpl. inversion H; subst...
+  Case "<-".
+    induction l...
+    SCase "a :: l".
+      inversion H; subst...
 Qed.
 
 
@@ -100,6 +159,17 @@ Proof with auto.
     constructor... intro. contradict H2.
     unfold In...
 Qed.
+
+Lemma uniq_f_permutation {A B : Type} :
+  forall (f : A -> B) (l l' : list A),
+    Permutation (map f l) (map f l') -> Uniq_f f l -> Uniq_f f l'.
+Proof with auto.
+  intros.
+  apply uniq_f_iff_uniq_map in H0. apply uniq_f_iff_uniq_map.
+  apply uniq_permutation with (map f l)...
+Qed.
+    
+    
 
 Lemma combine_pairs {A B : Type} :
   forall (ab : list (A*B)),
